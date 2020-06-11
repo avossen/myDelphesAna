@@ -227,15 +227,28 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
     {
       treeReader->ReadEntry(entry);
       //	     # four-momenta of proton, electron, virtual photon/Z^0/W^+-.                                                                       //this is the truth                                         
-      cout <<"going through entry " << entry <<endl;
-      cout <<" is there a pointer here? " << branchParticle->At(0) <<endl;
-      TLorentzVector  pProton    =  ((GenParticle*)branchParticle->At(0))->P4();// #these numbers 0 , 3, 5 are hardcoded in Pythia8
-	 
+      //      cout <<"going through entry " << entry <<endl;
+      //      cout <<" is there a pointer here? " << branchParticle->At(0) <<endl;
 
-      TLorentzVector	  pleptonIn    = ((GenParticle*)branchParticle->At(3))->P4();
+      if(branchParticle->GetEntries()>10)
+	{	
+      for(int i=0;i<10;i++)
+	{
+	  GenParticle* g=((GenParticle*)branchParticle->At(i));
+	  cout <<"particle at index " <<i   <<" pid: " << g->PID << " energy: "<< g->E <<endl;
+	}
+    }
+      
+      //      TLorentzVector  pProton    =  ((GenParticle*)branchParticle->At(0))->P4();// #these numbers 0 , 3, 5 are hardcoded in Pythia8
+            TLorentzVector  pProton    =  ((GenParticle*)branchParticle->At(5))->P4();// #these numbers 0 , 3, 5 are hardcoded in Pythia8
+	    //      TLorentzVector	  pleptonIn    = ((GenParticle*)branchParticle->At(3))->P4();
+	    //seems to be different in dire as well...
+	          TLorentzVector	  pleptonIn    = ((GenParticle*)branchParticle->At(2))->P4();
       cout <<"proton... has energy: " << pProton.E() <<" lepton in: " << pleptonIn.E() <<endl;
       cout <<"lepton..." <<endl;
-      TLorentzVector	  pleptonOut   = ((GenParticle*)branchParticle->At(5))->P4();
+      //      TLorentzVector	  pleptonOut   = ((GenParticle*)branchParticle->At(5))->P4();
+      //in the dire output this is at 4 (probably because coordinate system was switched originally)
+      TLorentzVector	  pleptonOut   = ((GenParticle*)branchParticle->At(4))->P4();
       cout <<"lep out..." <<endl;
       TLorentzVector	  pPhoton      = pleptonIn - pleptonOut;
       cout <<"photon..." <<endl;
@@ -244,8 +257,8 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       double  W2 = (pProton + pPhoton).M2();
       double  x = Q2 / (2. * pProton.Dot(pPhoton));
       double  y = (pProton.Dot(pPhoton)) / (pProton.Dot(pleptonIn));
-
-      cout <<"reconstructed: q2: " << Q2 <<" x: " << x <<" y: " << y <<endl;
+      cout <<"true q2: " << Q2 <<" x: " << x <<" y: " << y <<endl;
+      
       TLorentzVector e;
       Electron* electron;
       if(branchElectron->GetEntries()>0)
@@ -282,7 +295,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       cout <<" reconstructed JB x " << kinJBSmeared.x <<" Q2: "<< kinJBSmeared.Q2 <<endl;
       cout <<" reconstructed DA x " << kinDASmeared.x <<" Q2: "<< kinDASmeared.Q2 <<endl;
       cout <<" reconstructed mixed x " << mixedXSmeared <<endl;
-      
+      plots->Q2VsXSmearNorm->Fill(kinOrig.x,kinOrig.Q2);
       if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/20 && fabs(binlogOrigX-binRecX)<logXRange/20)
 	{
 	  plots->Q2VsXSmear->Fill(kinOrig.x,kinOrig.Q2);
@@ -396,6 +409,30 @@ int main(int argc, char** argv)
   BookHistograms(result, plots,beamEnergyI,hadronBeamEnergyI);
   cout <<" analyze events: " << endl;
   AnalyzeEvents(treeReader, plots,beamEnergy, hadronBeamEnergy,sqrtS);
+  
+  plots->Q2VsXSmear->Divide(plots->Q2VsXSmearNorm);
+  plots->Q2VsXSmearDA->Divide(plots->Q2VsXSmearNorm);
+  plots->Q2VsXSmearMixed->Divide(plots->Q2VsXSmearNorm);
+  plots->Q2VsXSmearJB->Divide(plots->Q2VsXSmearNorm);
+
+  TCanvas c1;
+  c1.SetLogz();
+  c1.SetLogy();
+  c1.SetLogx();
+  plots->Q2VsXSmearDA->Draw("colz");
+  sprintf(buffer,"Q2VsXSmearDA_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+  plots->Q2VsXSmearJB->Draw("colz");
+  sprintf(buffer,"Q2VsXSmearJB_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+  plots->Q2VsXSmearMixed->Draw("colz");
+  sprintf(buffer,"Q2VsXSmearMixed_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+  plots->Q2VsXSmear->Draw("colz");
+  sprintf(buffer,"Q2VsXSmear_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+
+  
   cout <<" print histo: " << endl;
   PrintHistograms(result, plots);
 

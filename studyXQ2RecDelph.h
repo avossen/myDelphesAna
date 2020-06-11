@@ -124,30 +124,38 @@ HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEF
       temp_p = temp_p+ track_mom.Vect();
 
     }
-  //subtract scattered electron
-  if(branchElectron->GetEntries()>0)
-    {
-       e = ((Electron*)branchElectron->At(0))->P4();
-      delta_track_noel = delta_track - (e.E() - e.Pz());
-    }
   
   for(int i=0;i<branchEFlowPhoton->GetEntries();i++)
     {
       TLorentzVector photon = ((Tower*)branchEFlowPhoton->At(i))->P4();
-      vSum+=photon;	
+      vSum+=photon;
+      delta_track+=(photon.E()-photon.Pz());
     }
 
   for(int i=0;i<branchEFlowNeutralHadron->GetEntries();i++)
     {
       TLorentzVector neutralHadron=((Tower*)branchEFlowNeutralHadron->At(i))->P4();
       vSum+=neutralHadron;
+      delta_track+=(neutralHadron.E()-neutralHadron.Pz());
+      
     }
-  ret.sumPx=vSum.Px();
-  ret.sumPy=vSum.Py();
-  ret.sumPz=vSum.Pz();
-  ret.sumE=vSum.E();
+    //subtract scattered electron
+  delta_track_noel=delta_track;
+  vSumNoEl=vSum;
+  if(branchElectron->GetEntries()>0)
+    {
+      e = ((Electron*)branchElectron->At(0))->P4();
+      delta_track_noel = delta_track - (e.E() - e.Pz());
+      vSumNoEl-=e;
+    }
+
+  ret.sumPx=vSumNoEl.Px();
+  ret.sumPy=vSumNoEl.Py();
+  ret.sumPz=vSumNoEl.Pz();
+  ret.sumE=vSumNoEl.E();
   ret.sumEMinusPz=delta_track_noel;
   ret.theta=2.*TMath::ATan((delta_track_noel)/vSum.Pt());
+  return ret;
 }
 
 
