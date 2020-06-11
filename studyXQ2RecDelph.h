@@ -1,4 +1,5 @@
 #include "TMath.h"
+#include "classes/DelphesClasses.h"
 using namespace std;
 struct Kins
 {
@@ -81,19 +82,27 @@ Kins getKinsFromScatElectron(double eBeamEnergy, double hadronBeamEnergy,double 
 
 HadronicVars getOriginalHadronicVar(TClonesArray* branchParticles)
 {
+  HadronicVars ret;
+  double EMinusPz=0;
+  TLorentzVector vSum;
   for(int i=0;branchParticles->GetEntries();i++)
     {
       //at 5 we have the outgoing lepton which we shouldn't include in the hadronic final state
       if(i==5)
 	continue;
-            
+      int status=((GenParticle*)branchParticles->At(i))->Status;            
       if(status!=1)
 	continue;
-
-      TLorentzVector lvParticle=((Particle*)branchParticles->At(i))->P4();
-      int status=((Particle*)branchParticles->At(i))->Status();
-      
+      TLorentzVector lvParticle=((GenParticle*)branchParticles->At(i))->P4();
+      vSum+=lvParticle;
+      EMinusPz+=lvParticle.E()-lvParticle.Pz();
     }
+  ret.sumPx=vSum.Px();
+  ret.sumPy=vSum.Py();
+  ret.sumPz=vSum.Pz();
+  ret.sumE=vSum.E();
+  ret.sumEMinusPz=EMinusPz;
+  ret.theta=2.*TMath::ATan((EMinusPz)/vSum.Pt());
 }
 
 HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEFlowTrack, TClonesArray* branchEFlowPhoton, TClonesArray* branchEFlowNeutralHadron)
