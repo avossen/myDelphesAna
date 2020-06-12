@@ -30,9 +30,13 @@ using namespace std;
 
 class ExRootTreeReader;
 class ExRootResult;
-
+const int corrBins=20;
 struct TestPlots
 {
+  TH1* yRes;
+  TH2* yCorr;
+  TH1* yRec;
+  TH1* yReal;
   TH2* Q2VsXSmear;
   TH2* Q2VsXSmearDA;
   TH2* Q2VsXSmearJB;
@@ -68,11 +72,15 @@ void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int 
   TPaveText *comment;
   char buffer[300];
   sprintf(buffer,"Fraction of events staying in bin (%dx%d)",beamEnergyI,hadronBeamEnergyI);
-  plots->Q2VsXSmear=result->AddHist2D("Q2VsXSmear",buffer,"x","Q^{2}",10,0.0001,1,10,0.5,200,1,1);
-  plots->Q2VsXSmearDA=result->AddHist2D("Q2VsXSmearDA",buffer,"x","Q^{2}",10,0.0001,1,10,0.5,200,1,1);
-  plots->Q2VsXSmearJB=result->AddHist2D("Q2VsXSmearJB",buffer,"x","Q^{2}",10,0.0001,1,10,0.5,200,1,1);
-  plots->Q2VsXSmearMixed=result->AddHist2D("Q2VsXSmearMixed",buffer,"x","Q^{2}",10,0.0001,1,10,0.5,200,1,1);
-  plots->Q2VsXSmearNorm=result->AddHist2D("Q2VsXSmearNorm",buffer,"x","Q^{2}",10,0.0001,1,10,0.5,200,1,1);
+  plots->yRes=result->AddHist1D("yRes","yRes","#Delta y","counts",200,-2.0,2.0);
+  plots->yReal=result->AddHist1D("yReal","yReal","corr y","counts",200,-2.0,2.0);
+  plots->yRec=result->AddHist1D("yRec","yRec","Rec y","counts",500,0.0,50.0);
+  plots->yCorr=result->AddHist2D("yCorr","yCorr","yRec","yReal",50,0,1,50,0,1,0,0);
+  plots->Q2VsXSmear=result->AddHist2D("Q2VsXSmear",buffer,"x","Q^{2}",corrBins,0.0001,1,corrBins,0.5,10000,1,1);
+  plots->Q2VsXSmearDA=result->AddHist2D("Q2VsXSmearDA",buffer,"x","Q^{2}",corrBins,0.0001,1,corrBins,0.5,10000,1,1);
+  plots->Q2VsXSmearJB=result->AddHist2D("Q2VsXSmearJB",buffer,"x","Q^{2}",corrBins,0.0001,1,corrBins,0.5,10000,1,1);
+  plots->Q2VsXSmearMixed=result->AddHist2D("Q2VsXSmearMixed",buffer,"x","Q^{2}",corrBins,0.0001,1,corrBins,0.5,10000,1,1);
+  plots->Q2VsXSmearNorm=result->AddHist2D("Q2VsXSmearNorm",buffer,"x","Q^{2}",corrBins,0.0001,1,corrBins,0.5,10000,1,1);
 
   plots->Q2CorrElec=result->AddHist2D("q2corrElec","q2corrElec","Q2 true", "Q2 rec",100,1,200,100,1,200,1,1);
   plots->Q2CorrJB=result->AddHist2D("q2corrJB","q2corrJB","Q2 true", "Q2 rec",100,1,200,100,1,200,1,1);
@@ -188,12 +196,15 @@ void PrintHistograms(ExRootResult *result, TestPlots *plots)
 }
 void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEnergy, double hadronBeamEnergy,double sqrtS)
 {
-  float logQ2Range=2.6;
+  bool useTruth=false;
+  float logQ2Range=4.3; //for 0.5 to 10k
   float logXRange=4;
 
+  TClonesArray *branchEvent=treeReader->UseBranch("Event");
   TClonesArray *branchParticle = treeReader->UseBranch("Particle");
   TClonesArray *branchElectron = treeReader->UseBranch("Electron");
-  TClonesArray *branchEFlowTrack = treeReader->UseBranch("EFlowTrack");
+  //TClonesArray *branchEFlowTrack = treeReader->UseBranch("EFlowTrack");
+  TClonesArray *branchEFlowTrack = treeReader->UseBranch("Track");
   TClonesArray *branchEFlowPhoton = treeReader->UseBranch("EFlowPhoton");
   TClonesArray *branchEFlowNeutralHadron = treeReader->UseBranch("EFlowNeutralHadron");
   TClonesArray *branchJet = treeReader->UseBranch("Jet");
@@ -230,6 +241,9 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       //      cout <<"going through entry " << entry <<endl;
       //      cout <<" is there a pointer here? " << branchParticle->At(0) <<endl;
 
+      cout <<"branch event has " << branchEvent->GetEntries() <<endl;
+
+      
       if(branchParticle->GetEntries()>10)
 	{	
       for(int i=0;i<10;i++)
@@ -275,13 +289,27 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       cout << "true electron 1: "<< pleptonOut.E() <<endl;
       particle = (GenParticle*) electron->Particle.GetObject();
       cout <<"truth from rec electron: "<< particle->E<<endl;
-      Kins kinOrig=getKinsFromScatElectron(pleptonIn.E(),pProton.E(),pleptonOut.Px(),pleptonOut.Py(),pleptonOut.Pz(),pleptonOut.E());
+      //      Kins kinOrig=getKinsFromScatElectron(pleptonIn.E(),pProton.E(),pleptonOut.Px(),pleptonOut.Py(),pleptonOut.Pz(),pleptonOut.E());
+            Kins kinOrig=getKinsFromScatElectron(beamEnergy,hadronBeamEnergy,particle->Px,particle->Py,particle->Pz,particle->E);
       Kins kinSmeared=getKinsFromScatElectron(beamEnergy,hadronBeamEnergy,e.Px(),e.Py(),e.Pz(),e.E());
-      
+      HadronicVars hvOrig=getOriginalHadronicVars(branchParticle);
       HadronicVars hvSmeared=getHadronicVars(branchElectron, branchEFlowTrack, branchEFlowPhoton,branchEFlowNeutralHadron);
+
+      plots->yRes->Fill((hvOrig.sumEMinusPz-hvSmeared.sumEMinusPz)/(2*beamEnergy));
+      //      plots->yRec->Fill((hvSmeared.sumEMinusPz)/(2*beamEnergy));
+      //      plots->yRec->Fill((hvSmeared.sumEMinusPz));
+      plots->yReal->Fill((hvOrig.sumEMinusPz)/(2*beamEnergy));
+      plots->yCorr->Fill(hvSmeared.sumEMinusPz/(2*beamEnergy),hvOrig.sumEMinusPz/(2*beamEnergy));
+      
+      if(useTruth)
+	{
+	  hvSmeared=hvOrig;
+	}
+      
       Kins kinJBSmeared=getKinsJB(hvSmeared,beamEnergy,hadronBeamEnergy,sqrtS*sqrtS);
       Kins kinDASmeared=getKinsDA(e.Px(),e.Py(),e.Pz() ,e.E(),beamEnergy,hvSmeared.theta, sqrtS*sqrtS);
-	  
+
+      cout <<"jb y: "<< kinJBSmeared.y << " sqrtS: "<< sqrtS <<endl;
       float mixedXSmeared=kinSmeared.Q2/(sqrtS*sqrtS*kinJBSmeared.y);
       
       double binlogOrigQ2=log(kinOrig.Q2);
@@ -296,14 +324,14 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       cout <<" reconstructed DA x " << kinDASmeared.x <<" Q2: "<< kinDASmeared.Q2 <<endl;
       cout <<" reconstructed mixed x " << mixedXSmeared <<endl;
       plots->Q2VsXSmearNorm->Fill(kinOrig.x,kinOrig.Q2);
-      if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/20 && fabs(binlogOrigX-binRecX)<logXRange/20)
+      if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBins) && fabs(binlogOrigX-binRecX)<logXRange/(2*corrBins))
 	{
 	  plots->Q2VsXSmear->Fill(kinOrig.x,kinOrig.Q2);
 	}
       binRecQ2=log(kinDASmeared.Q2);
       binRecX=log(kinDASmeared.x);
       
-      if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/20 && fabs(binlogOrigX-binRecX)<logXRange/20)
+      if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBins) && fabs(binlogOrigX-binRecX)<logXRange/(2*corrBins))
 	{
 	  plots->Q2VsXSmearDA->Fill(kinOrig.x,kinOrig.Q2);
 	}
@@ -311,14 +339,14 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       binRecQ2=log(kinJBSmeared.Q2);
       binRecX=log(kinJBSmeared.x);
 
-      if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/20 && fabs(binlogOrigX-binRecX)<logXRange/20)
+      if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBins) && fabs(binlogOrigX-binRecX)<logXRange/(2*corrBins))
 	{
 	  plots->Q2VsXSmearJB->Fill(kinOrig.x,kinOrig.Q2);
 	}
       
       binRecQ2=log(kinSmeared.Q2);
       binRecX=log(mixedXSmeared);
-      if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/20 && fabs(binlogOrigX-binRecX)<logXRange/20)
+      if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBins) && fabs(binlogOrigX-binRecX)<logXRange/(2*corrBins))
 	{
 	  plots->Q2VsXSmearMixed->Fill(kinOrig.x,kinOrig.Q2);
 	}
@@ -409,17 +437,32 @@ int main(int argc, char** argv)
   BookHistograms(result, plots,beamEnergyI,hadronBeamEnergyI);
   cout <<" analyze events: " << endl;
   AnalyzeEvents(treeReader, plots,beamEnergy, hadronBeamEnergy,sqrtS);
-  
+  cout <<"done analyzing, dividing... "<<endl;  
   plots->Q2VsXSmear->Divide(plots->Q2VsXSmearNorm);
   plots->Q2VsXSmearDA->Divide(plots->Q2VsXSmearNorm);
   plots->Q2VsXSmearMixed->Divide(plots->Q2VsXSmearNorm);
   plots->Q2VsXSmearJB->Divide(plots->Q2VsXSmearNorm);
-
+  cout <<"plotting... "<<endl;  
   TCanvas c1;
-  c1.SetLogz();
+
   c1.SetLogy();
   c1.SetLogx();
-  plots->Q2VsXSmearDA->Draw("colz");
+    cout <<"first... "<<endl;  
+
+  plots->Q2VsXSmear->SetMaximum(1.0);
+  plots->Q2VsXSmear->SetMinimum(0.0);
+  
+  plots->Q2VsXSmearDA->SetMaximum(1.0);
+  plots->Q2VsXSmearDA->SetMinimum(0.0);
+
+  plots->Q2VsXSmearJB->SetMaximum(1.0);
+  plots->Q2VsXSmearJB->SetMinimum(0.0);
+  plots->Q2VsXSmearDA->SetMaximum(1.0);
+  plots->Q2VsXSmearDA->SetMinimum(0.0);
+  plots->Q2VsXSmearMixed->SetMaximum(1.0);
+  plots->Q2VsXSmearMixed->SetMinimum(0.0);
+
+    plots->Q2VsXSmearDA->Draw("colz");
   sprintf(buffer,"Q2VsXSmearDA_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
   c1.SaveAs(buffer);
   plots->Q2VsXSmearJB->Draw("colz");
@@ -432,7 +475,7 @@ int main(int argc, char** argv)
   sprintf(buffer,"Q2VsXSmear_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
   c1.SaveAs(buffer);
 
-  
+  c1.SetLogz();  
   cout <<" print histo: " << endl;
   PrintHistograms(result, plots);
 

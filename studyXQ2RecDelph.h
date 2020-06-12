@@ -80,16 +80,19 @@ Kins getKinsFromScatElectron(double eBeamEnergy, double hadronBeamEnergy,double 
 }
 
 
-HadronicVars getOriginalHadronicVar(TClonesArray* branchParticles)
+HadronicVars getOriginalHadronicVars(TClonesArray* branchParticles)
 {
   HadronicVars ret;
   double EMinusPz=0;
   TLorentzVector vSum;
-  for(int i=0;branchParticles->GetEntries();i++)
+  for(int i=6;i<branchParticles->GetEntries();i++)
     {
       //at 5 we have the outgoing lepton which we shouldn't include in the hadronic final state
-      if(i==5)
-	continue;
+      //I guess dire at 4
+
+      //      if(i==5)
+      //      if(i==4)
+      //	continue;
       int status=((GenParticle*)branchParticles->At(i))->Status;            
       if(status!=1)
 	continue;
@@ -103,38 +106,74 @@ HadronicVars getOriginalHadronicVar(TClonesArray* branchParticles)
   ret.sumE=vSum.E();
   ret.sumEMinusPz=EMinusPz;
   ret.theta=2.*TMath::ATan((EMinusPz)/vSum.Pt());
+  return ret;
 }
 
 HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEFlowTrack, TClonesArray* branchEFlowPhoton, TClonesArray* branchEFlowNeutralHadron)
 {
+  bool useTruth=false;
+  
   HadronicVars ret;
-  TVector3 temp_p;
+
   double delta_track=0;
   double delta_track_noel=0;
   double delta_photon=0;
   double delta_neut=0;
-  TLorentzVector vSum;
-  TLorentzVector vSumNoEl;
-  TLorentzVector e;//only first candidate
+  
+  TLorentzVector vSum(0.0,0.0,0.0,0.0);
+  TLorentzVector vSumNoEl(0.0,0.0,0.0,0.0);
+  TLorentzVector e(0.0,0.0,0.0,0.0);//only first candidate
+  
   for(int i=0;i<branchEFlowTrack->GetEntries();i++)
     {
-      TLorentzVector track_mom=((Track*)branchEFlowTrack->At(i))->P4();
+      Track* t=(Track*)branchEFlowTrack->At(i);
+
+      if(fabs(t->Eta)>5.0 || (fabs(t->P)<0.01))
+	{
+	  continue;
+	}
+      TLorentzVector track_mom=t->P4();
+      if(isnan(track_mom.E()))
+	 continue;
+      if(useTruth)
+	{
+	  GenParticle* tp = (GenParticle*) t->Particle.GetObject();
+	  track_mom=tp->P4();
+	}
       vSum+=track_mom;
       delta_track+=(track_mom.E()-track_mom.Pz());
-      temp_p = temp_p+ track_mom.Vect();
-
     }
   
   for(int i=0;i<branchEFlowPhoton->GetEntries();i++)
     {
-      TLorentzVector photon = ((Tower*)branchEFlowPhoton->At(i))->P4();
-      vSum+=photon;
-      delta_track+=(photon.E()-photon.Pz());
+      Tower* to=(Tower*)branchEFlowPhoton->At(i);
+      TLorentzVector ph_mom=to->P4();
+      if(isnan(ph_mom.E()))
+	 continue;
+
+      if(useTruth)
+	{
+	  //	  GenParticle* tp = (GenParticle*) to->Particle.GetObject();
+	  //	  ph_mom=tp->P4();
+	}
+
+      vSum+=ph_mom;
+      delta_track+=(ph_mom.E()-ph_mom.Pz());
     }
 
   for(int i=0;i<branchEFlowNeutralHadron->GetEntries();i++)
     {
-      TLorentzVector neutralHadron=((Tower*)branchEFlowNeutralHadron->At(i))->P4();
+      Tower* nh=(Tower*)branchEFlowNeutralHadron->At(i);
+      
+      TLorentzVector neutralHadron=nh->P4();
+      if(isnan(neutralHadron.E()))
+	 continue;
+
+      if(useTruth)
+	{
+	  //	  GenParticle* tp = (GenParticle*) nh->Particle.GetObject();
+	  //	  neutralHadron=tp->P4();
+	}
       vSum+=neutralHadron;
       delta_track+=(neutralHadron.E()-neutralHadron.Pz());
       
@@ -144,7 +183,13 @@ HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEF
   vSumNoEl=vSum;
   if(branchElectron->GetEntries()>0)
     {
-      e = ((Electron*)branchElectron->At(0))->P4();
+      Electron* el=(Electron*)branchElectron->At(0);
+      TLorentzVector e=el->P4();
+      if(useTruth)
+	{
+	  GenParticle* te = (GenParticle*) el->Particle.GetObject();
+	  e=te->P4();
+	}
       delta_track_noel = delta_track - (e.E() - e.Pz());
       vSumNoEl-=e;
     }
@@ -155,6 +200,7 @@ HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEF
   ret.sumE=vSumNoEl.E();
   ret.sumEMinusPz=delta_track_noel;
   ret.theta=2.*TMath::ATan((delta_track_noel)/vSum.Pt());
+
   return ret;
 }
 
