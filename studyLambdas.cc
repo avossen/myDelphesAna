@@ -11,6 +11,7 @@
 #include <set>
 //#include "studyPIDs.h"
 
+
 #include "TGraph.h"
 #include "TFile.h"
 #include "TStyle.h"
@@ -25,6 +26,7 @@
 #include "external/ExRootAnalysis/ExRootResult.h"
 
 #include "studyXQ2RecDelph.h"
+#include "studyLambda.h"
 using namespace std;
 
 
@@ -49,6 +51,11 @@ struct TestPlots
   TH2* Q2VsXSmearNorm;
   TH2* corrConventionalQ2;
   TH2* corrConventionalX;
+
+
+  TH1* lambdaMass;
+  TH1* lambdaIJMass;
+    
 
 
   TH2* Q2CorrElec;
@@ -77,6 +84,8 @@ void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int 
   TPaveText *comment;
   char buffer[300];
   sprintf(buffer,"Fraction of events staying in bin (%dx%d)",beamEnergyI,hadronBeamEnergyI);
+  plots->lambdaMass=result->AddHist1D("lambdaMass", "lambda mass","mass [GeV]","counts",50,0.8,1.3);
+  plots->lambdaIJMass=result->AddHist1D("lambdaInJetMass", "lambda in jet mmass","mass [GeV]","counts",50,0.8,1.3);
   plots->yRes=result->AddHist1D("yRes","yRes","#Delta y","counts",200,-2.0,2.0);
   plots->yReal=result->AddHist1D("yReal","yReal","corr y","counts",200,-2.0,2.0);
   plots->yRec=result->AddHist1D("yRec","yRec","Rec y","counts",500,0.0,50.0);
@@ -252,7 +261,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       //      cout <<"going through entry " << entry <<endl;
       //      cout <<" is there a pointer here? " << branchParticle->At(0) <<endl;
 
-      cout <<"branch event has " << branchEvent->GetEntries() <<endl;
+      //      cout <<"branch event has " << branchEvent->GetEntries() <<endl;
 
       
       if(branchParticle->GetEntries()>10)
@@ -260,29 +269,34 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  for(int i=0;i<10;i++)
 	{
 	  GenParticle* g=((GenParticle*)branchParticle->At(i));
-	  cout <<"particle at index " <<i   <<" pid: " << g->PID << " energy: "<< g->E <<endl;
+	  //	  cout <<"particle at index " <<i   <<" pid: " << g->PID << " energy: "<< g->E <<endl;
 	}
     }
+
+
+      getLambdas(branchParticle,branchEFlowTrack,plots->lambdaMass);
+      getLambdasInJets(branchParticle,branchTrack,branchJet, plots->lambdaIJMass);
+      
       
       //      TLorentzVector  pProton    =  ((GenParticle*)branchParticle->At(0))->P4();// #these numbers 0 , 3, 5 are hardcoded in Pythia8
             TLorentzVector  pProton    =  ((GenParticle*)branchParticle->At(5))->P4();// #these numbers 0 , 3, 5 are hardcoded in Pythia8
 	    //      TLorentzVector	  pleptonIn    = ((GenParticle*)branchParticle->At(3))->P4();
 	    //seems to be different in dire as well...
 	          TLorentzVector	  pleptonIn    = ((GenParticle*)branchParticle->At(2))->P4();
-      cout <<"proton... has energy: " << pProton.E() <<" lepton in: " << pleptonIn.E() <<endl;
-      cout <<"lepton..." <<endl;
+		  //      cout <<"proton... has energy: " << pProton.E() <<" lepton in: " << pleptonIn.E() <<endl;
+		  //      cout <<"lepton..." <<endl;
       //      TLorentzVector	  pleptonOut   = ((GenParticle*)branchParticle->At(5))->P4();
       //in the dire output this is at 4 (probably because coordinate system was switched originally)
       TLorentzVector	  pleptonOut   = ((GenParticle*)branchParticle->At(4))->P4();
-      cout <<"lep out..." <<endl;
+      //      cout <<"lep out..." <<endl;
       TLorentzVector	  pPhoton      = pleptonIn - pleptonOut;
-      cout <<"photon..." <<endl;
+      //      cout <<"photon..." <<endl;
       //Q2, W2, Bjorken x, y, nu.                                                                                                                                                  
       double  Q2 = -pPhoton.M2();
       double  W2 = (pProton + pPhoton).M2();
       double  x = Q2 / (2. * pProton.Dot(pPhoton));
       double  y = (pProton.Dot(pPhoton)) / (pProton.Dot(pleptonIn));
-      cout <<"true q2: " << Q2 <<" x: " << x <<" y: " << y <<endl;
+      //      cout <<"true q2: " << Q2 <<" x: " << x <<" y: " << y <<endl;
       
       TLorentzVector e;
       Electron* electron;
@@ -296,10 +310,10 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  continue;
 	}
       studyReconstruction(branchParticle,branchEFlowTrack,branchEFlowPhoton,branchEFlowNeutralHadron,branchTrack);	  
-      cout <<"rec electron E: "<< e.E()<<endl;
-      cout << "true electron 1: "<< pleptonOut.E() <<endl;
+      //      cout <<"rec electron E: "<< e.E()<<endl;
+      //      cout << "true electron 1: "<< pleptonOut.E() <<endl;
       particle = (GenParticle*) electron->Particle.GetObject();
-      cout <<"truth from rec electron: "<< particle->E<<endl;
+      //      cout <<"truth from rec electron: "<< particle->E<<endl;
       //      Kins kinOrig=getKinsFromScatElectron(pleptonIn.E(),pProton.E(),pleptonOut.Px(),pleptonOut.Py(),pleptonOut.Pz(),pleptonOut.E());
             Kins kinOrig=getKinsFromScatElectron(beamEnergy,hadronBeamEnergy,particle->Px,particle->Py,particle->Pz,particle->E);
 
@@ -333,7 +347,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  kinDASmeared=getKinsDA(particle->Px,particle->Py,particle->Pz ,particle->E,beamEnergy,hvSmeared.theta, sqrtS*sqrtS);
 	}
 
-      cout <<"jb y: "<< kinJBSmeared.y << " sqrtS: "<< sqrtS <<endl;
+      //      cout <<"jb y: "<< kinJBSmeared.y << " sqrtS: "<< sqrtS <<endl;
       float mixedXSmeared=kinSmeared.Q2/(sqrtS*sqrtS*kinJBSmeared.y);
       
       double binlogOrigQ2=log10(kinOrig.Q2);
@@ -342,11 +356,11 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       double binRecX=log10(kinSmeared.x);
 
 
-      cout <<" reconstructed orig x " << kinOrig.x <<" Q2: "<< kinOrig.Q2 <<endl;
-      cout <<" reconstructed smear x " << kinSmeared.x <<" Q2: "<< kinSmeared.Q2 <<endl;
-      cout <<" reconstructed JB x " << kinJBSmeared.x <<" Q2: "<< kinJBSmeared.Q2 <<endl;
-      cout <<" reconstructed DA x " << kinDASmeared.x <<" Q2: "<< kinDASmeared.Q2 <<endl;
-      cout <<" reconstructed mixed x " << mixedXSmeared <<endl;
+      //      cout <<" reconstructed orig x " << kinOrig.x <<" Q2: "<< kinOrig.Q2 <<endl;
+      //      cout <<" reconstructed smear x " << kinSmeared.x <<" Q2: "<< kinSmeared.Q2 <<endl;
+      //      cout <<" reconstructed JB x " << kinJBSmeared.x <<" Q2: "<< kinJBSmeared.Q2 <<endl;
+      //      cout <<" reconstructed DA x " << kinDASmeared.x <<" Q2: "<< kinDASmeared.Q2 <<endl;
+      //      cout <<" reconstructed mixed x " << mixedXSmeared <<endl;
       plots->Q2VsXSmearNorm->Fill(kinOrig.x,kinOrig.Q2);
       if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBinsQ2) && fabs(binlogOrigX-binRecX)<logXRange/(2*corrBinsX))
 	{
@@ -362,15 +376,15 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       
       binRecQ2=log10(kinJBSmeared.Q2);
       binRecX=log10(kinJBSmeared.x);
-      cout <<"jb q2: "<< kinJBSmeared.Q2 <<" x: "<< kinJBSmeared.x <<" log q2: "<< binRecQ2 <<" log x: "<< binRecX << " binlogOrig: " << binlogOrigQ2 <<" x: "<< binlogOrigX <<endl;
+      //      cout <<"jb q2: "<< kinJBSmeared.Q2 <<" x: "<< kinJBSmeared.x <<" log q2: "<< binRecQ2 <<" log x: "<< binRecX << " binlogOrig: " << binlogOrigQ2 <<" x: "<< binlogOrigX <<endl;
       if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBinsQ2) && fabs(binlogOrigX-binRecX)<logXRange/(2*corrBinsX))
 	{
-	  cout <<" in bin " <<endl;
+	  //	  cout <<" in bin " <<endl;
 	  plots->Q2VsXSmearJB->Fill(kinOrig.x,kinOrig.Q2);
 	}
       else
 	{
-	  cout <<" not in bin " <<endl;
+	  //	  cout <<" not in bin " <<endl;
 	}
       binRecQ2=log10(kinSmeared.Q2);
       binRecX=log10(mixedXSmeared);
@@ -432,7 +446,7 @@ int main(int argc, char** argv)
   double beamEnergy=0.0+beamEnergyI;
   double hadronBeamEnergy=0.0+hadronBeamEnergyI;
   
-  cout <<"using beam energy of " << beamEnergy <<" and hadron beam energy of " << hadronBeamEnergy<<endl;
+  //  cout <<"using beam energy of " << beamEnergy <<" and hadron beam energy of " << hadronBeamEnergy<<endl;
   //      cout <<"original e px: " << ePxOrig <<" py: " << ePyOrig<< " pz: "<< ePzOrig<<endl;
   float sqrtS=0;
   if(hadronBeamEnergy>200)

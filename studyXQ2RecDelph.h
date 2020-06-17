@@ -10,6 +10,8 @@ struct Kins
   float W;
 };
 
+
+
 static void BinLog(TAxis * axis)
     {
       Float_t lb = axis->GetXmin();
@@ -40,7 +42,61 @@ struct HadronicVars
 };
 
 
+void studyReconstruction(TClonesArray* branchParticles, TClonesArray* branchEFlowTrack, TClonesArray* branchEFlowPhoton, TClonesArray* branchEFlowNeutralHadron, TClonesArray* branchTrack)
+{
 
+  for(int i=6;i<branchParticles->GetEntries();i++)
+    {
+      GenParticle* mParticle=((GenParticle*)branchParticles->At(i));
+      if(mParticle->Status!=1)
+	continue;
+
+
+      //      cout <<"looking at generated particle: "<< mParticle->PID <<" energy: "<< mParticle->E<<" eta: "<< mParticle->Eta <<endl;
+        for(int j=0;j<branchEFlowTrack->GetEntries();j++)
+	  {
+	    GenParticle* p=(GenParticle*)((Track*)branchEFlowTrack->At(j))->Particle.GetObject();
+	    if(p==mParticle)
+	      {
+		//found the particle in the track flow object
+		Track* t=(Track*)branchEFlowTrack->At(j);
+		//		cout <<"found corresponding flow track with E: "<< t->P4().E()<<endl;
+	      }
+	  }
+	for(int j=0;j<branchTrack->GetEntries();j++)
+	  {
+	    GenParticle* p=(GenParticle*)((Track*)branchTrack->At(j))->Particle.GetObject();
+	    if(p==mParticle)
+	      {
+		//found the particle in the track flow object
+		Track* t=(Track*)branchTrack->At(j);
+		//		cout <<"found corresponding  track with E: "<< t->P4().E()<<endl;
+	      }
+	  }
+
+	for(int j=0;j<branchEFlowPhoton->GetEntries();j++)
+	  {
+	    int pi=((Tower*)branchEFlowPhoton->At(j))->Particles.IndexOf(mParticle);
+	    if(pi>=0)
+	      {
+		Tower* t=(Tower*)branchEFlowPhoton->At(j);
+		//		cout <<"found corresponding ecal tower with E: "<< t->E<<endl;
+	      }
+	  }
+	for(int j=0;j<branchEFlowNeutralHadron->GetEntries();j++)
+	  {
+	    int hi=((Tower*)branchEFlowNeutralHadron->At(j))->Particles.IndexOf(mParticle);
+	    if(hi>=0)
+	      {
+		Tower* t=(Tower*)branchEFlowNeutralHadron->At(j);
+		//		cout <<"found corresponding hcal tower with E: "<< t->E<<endl;
+	      }
+	  }
+      
+    }
+
+
+}
 
 
 //electron goes into the negative direction
@@ -105,11 +161,11 @@ HadronicVars getOriginalHadronicVars(TClonesArray* branchParticles)
   ret.sumPz=vSum.Pz();
   ret.sumE=vSum.E();
   ret.sumEMinusPz=EMinusPz;
-  ret.theta=2.*TMath::ATan((EMinusPz)/vSum.Pt());
+  ret.theta=2.*TMath::ATan(EMinusPz/vSum.Pt());
   return ret;
 }
 
-HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEFlowTrack, TClonesArray* branchEFlowPhoton, TClonesArray* branchEFlowNeutralHadron)
+HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEFlowTrack, TClonesArray* branchEFlowPhoton, TClonesArray* branchEFlowNeutralHadron, TClonesArray* branchTrack, TClonesArray* branchParticles)
 {
   bool useTruth=false;
   
@@ -123,12 +179,38 @@ HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEF
   TLorentzVector vSum(0.0,0.0,0.0,0.0);
   TLorentzVector vSumNoEl(0.0,0.0,0.0,0.0);
   TLorentzVector e(0.0,0.0,0.0,0.0);//only first candidate
-  
+
+  ////use truth for eta > 4 
+  bool suppWithTruth=false;
+  bool noTruthNoTrack=true;
   for(int i=0;i<branchEFlowTrack->GetEntries();i++)
     {
       Track* t=(Track*)branchEFlowTrack->At(i);
 
-      if(fabs(t->Eta)>5.0 || (fabs(t->P)<0.01))
+      if(fabs(t->Eta)>4.0 || (fabs(t->P)<0.01))
+	{
+	  continue;
+	}
+      TLorentzVector track_mom=t->P4();
+      if(isnan(track_mom.E()))
+	 continue;
+      if(useTruth)
+	{
+	  GenParticle* tp = (GenParticle*) t->Particle.GetObject();
+	  track_mom=tp->P4();
+	}
+      vSum+=track_mom;
+      delta_track+=(track_mom.E()-track_mom.Pz());
+    }
+  //use tracks for eta>4.0
+  for(int i=0;i<branchTrack->GetEntries();i++)
+    {
+
+      if(suppWithTruth||noTruthNoTrack)
+	continue;
+      Track* t=(Track*)branchTrack->At(i);
+
+      if(fabs(t->Eta)<4.0 || (fabs(t->P)<0.01))
 	{
 	  continue;
 	}
@@ -147,6 +229,8 @@ HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEF
   for(int i=0;i<branchEFlowPhoton->GetEntries();i++)
     {
       Tower* to=(Tower*)branchEFlowPhoton->At(i);
+      if(fabs(to->Eta)>4.0)
+	continue;
       TLorentzVector ph_mom=to->P4();
       if(isnan(ph_mom.E()))
 	 continue;
@@ -164,7 +248,9 @@ HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEF
   for(int i=0;i<branchEFlowNeutralHadron->GetEntries();i++)
     {
       Tower* nh=(Tower*)branchEFlowNeutralHadron->At(i);
-      
+      if(fabs(nh->Eta)>4.0)
+	continue;
+ 
       TLorentzVector neutralHadron=nh->P4();
       if(isnan(neutralHadron.E()))
 	 continue;
@@ -178,6 +264,29 @@ HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEF
       delta_track+=(neutralHadron.E()-neutralHadron.Pz());
       
     }
+    if(suppWithTruth)
+      {
+	for(int i=6;i<branchParticles->GetEntries();i++)
+	  {
+	    //at 5 we have the outgoing lepton which we shouldn't include in the hadronic final state
+	    //I guess dire at 4
+
+	    //      if(i==5)
+	    //      if(i==4)
+	    //	continue;
+	    GenParticle* part= ((GenParticle*)branchParticles->At(i));
+	    int status=((GenParticle*)branchParticles->At(i))->Status;
+	    if(fabs(part->Eta)<4)
+	      continue;
+	    if(status!=1)
+	      continue;
+
+	    TLorentzVector lvParticle=((GenParticle*)branchParticles->At(i))->P4();
+
+	    vSum+=lvParticle;
+	    delta_track+=lvParticle.E()-lvParticle.Pz();
+	  }
+      }
     //subtract scattered electron
   delta_track_noel=delta_track;
   vSumNoEl=vSum;
@@ -199,7 +308,7 @@ HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEF
   ret.sumPz=vSumNoEl.Pz();
   ret.sumE=vSumNoEl.E();
   ret.sumEMinusPz=delta_track_noel;
-  ret.theta=2.*TMath::ATan((delta_track_noel)/vSum.Pt());
+  ret.theta=2.*TMath::ATan(delta_track_noel/vSumNoEl.Pt());
 
   return ret;
 }
