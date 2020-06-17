@@ -273,9 +273,6 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	}
     }
 
-
-      getLambdas(branchParticle,branchEFlowTrack,plots->lambdaMass);
-      getLambdasInJets(branchParticle,branchTrack,branchJet, plots->lambdaIJMass);
       
       
       //      TLorentzVector  pProton    =  ((GenParticle*)branchParticle->At(0))->P4();// #these numbers 0 , 3, 5 are hardcoded in Pythia8
@@ -297,7 +294,18 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       double  x = Q2 / (2. * pProton.Dot(pPhoton));
       double  y = (pProton.Dot(pPhoton)) / (pProton.Dot(pleptonIn));
       //      cout <<"true q2: " << Q2 <<" x: " << x <<" y: " << y <<endl;
+      TVector3 boostVect = (TLorentzVector(pPhoton+pProton)).BoostVector();
+      boostVect=(-1)*boostVect;
+
+      getLambdas(branchParticle,branchTrack,plots->lambdaMass,boostVect,sqrt(W2));
+      getLambdasInJets(branchParticle,branchTrack,branchJet, plots->lambdaIJMass,boostVect,sqrt(W2));
+
+      // System.out.println("gN x " + gN.px()+ " y: "+gN.py() + " pz: " +gN.pz() + "
+		// e: "+ gN.e() );
+
       
+		//System.out.println("W: " + W  + " Walt: "+ Walt);
+            
       TLorentzVector e;
       Electron* electron;
       if(branchElectron->GetEntries()>0)

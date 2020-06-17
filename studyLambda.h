@@ -1,4 +1,4 @@
-void getLambdas(TClonesArray* branchParticles, TClonesArray* branchEFlowTrack, TH1* histo)
+void getLambdas(TClonesArray* branchParticles, TClonesArray* branchEFlowTrack, TH1* histo,TVector3& boostVect,double W)
 {
     for(int i=0;i<branchEFlowTrack->GetEntries();i++)
       {
@@ -57,7 +57,10 @@ void getLambdas(TClonesArray* branchParticles, TClonesArray* branchEFlowTrack, T
 		    
 		    TLorentzVector lambdaP4=(tl1+tl2);
 		    cout <<endl<<" found lambda with mass: "<< lambdaP4.M()<<endl;
-		    histo->Fill(lambdaP4.M());
+		    //get xF of lambda:
+		    lambdaP4.Boost(boostVect);
+		    if(lambdaP4.Pz()/W>0)
+		      histo->Fill(lambdaP4.M());
 		  }
 		
 	      }
@@ -67,7 +70,7 @@ void getLambdas(TClonesArray* branchParticles, TClonesArray* branchEFlowTrack, T
 }
 
 
-void getLambdasInJets(TClonesArray* branchParticles, TClonesArray* branchTracks, TClonesArray* jets, TH1* histo)
+void getLambdasInJets(TClonesArray* branchParticles, TClonesArray* branchTracks, TClonesArray* jets, TH1* histo,TVector3 boostVect, double W)
 {
   //  cout <<" we have " << jets->GetEntries() <<" jets " <<endl;
 
@@ -167,7 +170,9 @@ void getLambdasInJets(TClonesArray* branchParticles, TClonesArray* branchTracks,
 
 			  //			    cout <<"found pair " <<endl;
 			  TLorentzVector lambdaP4=track1->P4()+track2->P4();
-			  histo->Fill(lambdaP4.M());
+			  lambdaP4.Boost(boostVect);
+			  if(lambdaP4.Pz()/W>0)
+			    histo->Fill(lambdaP4.M());
 			  //			    cout <<endl<<" foundlambda in jet with mass: "<< lambdaP4.M()<<endl;
 			}
 		    }
