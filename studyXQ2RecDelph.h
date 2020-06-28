@@ -10,7 +10,23 @@ struct Kins
   float W;
 };
 
+float drawYContour(float yval,float beamEnergy, float hadronBeamEnergy)
+{
+  // y contours
+  Float_t EdotP; 
+  // y-cut contour
+  //  yval = 0.01; 
+  EdotP = 2*beamEnergy*hadronBeamEnergy; // (scalar product of beams' 4 momenta)
+  float Q2min=1.0;
+  float xmax=1.0;
+  TLine * yline = new TLine(
+    Q2min / (2*yval*EdotP), Q2min, xmax, 2*xmax*yval*EdotP);
+  yline->SetLineWidth(4);
+  yline->SetLineStyle(2);
+  yline->Draw();
+  // clas12 y=1 line
 
+}
 
 static void BinLog(TAxis * axis)
     {
@@ -45,6 +61,7 @@ struct HadronicVars
 void studyReconstruction(TClonesArray* branchParticles, TClonesArray* branchEFlowTrack, TClonesArray* branchEFlowPhoton, TClonesArray* branchEFlowNeutralHadron, TClonesArray* branchTrack)
 {
 
+  cout <<"study rec " <<endl;
   for(int i=6;i<branchParticles->GetEntries();i++)
     {
       GenParticle* mParticle=((GenParticle*)branchParticles->At(i));
@@ -53,6 +70,7 @@ void studyReconstruction(TClonesArray* branchParticles, TClonesArray* branchEFlo
 
 
       //      cout <<"looking at generated particle: "<< mParticle->PID <<" energy: "<< mParticle->E<<" eta: "<< mParticle->Eta <<endl;
+      cout <<"eflow tracks " <<endl;
         for(int j=0;j<branchEFlowTrack->GetEntries();j++)
 	  {
 	    GenParticle* p=(GenParticle*)((Track*)branchEFlowTrack->At(j))->Particle.GetObject();
@@ -63,6 +81,7 @@ void studyReconstruction(TClonesArray* branchParticles, TClonesArray* branchEFlo
 		//		cout <<"found corresponding flow track with E: "<< t->P4().E()<<endl;
 	      }
 	  }
+	      cout <<"tracks " <<endl;
 	for(int j=0;j<branchTrack->GetEntries();j++)
 	  {
 	    GenParticle* p=(GenParticle*)((Track*)branchTrack->At(j))->Particle.GetObject();
@@ -73,7 +92,7 @@ void studyReconstruction(TClonesArray* branchParticles, TClonesArray* branchEFlo
 		//		cout <<"found corresponding  track with E: "<< t->P4().E()<<endl;
 	      }
 	  }
-
+      cout <<"photon " <<endl;
 	for(int j=0;j<branchEFlowPhoton->GetEntries();j++)
 	  {
 	    int pi=((Tower*)branchEFlowPhoton->At(j))->Particles.IndexOf(mParticle);
@@ -83,13 +102,17 @@ void studyReconstruction(TClonesArray* branchParticles, TClonesArray* branchEFlo
 		//		cout <<"found corresponding ecal tower with E: "<< t->E<<endl;
 	      }
 	  }
-	for(int j=0;j<branchEFlowNeutralHadron->GetEntries();j++)
+	cout <<"neutral hadron? " << branchEFlowNeutralHadron <<endl;
+	if(branchEFlowNeutralHadron!=0)
 	  {
-	    int hi=((Tower*)branchEFlowNeutralHadron->At(j))->Particles.IndexOf(mParticle);
-	    if(hi>=0)
+	    for(int j=0;j<branchEFlowNeutralHadron->GetEntries();j++)
 	      {
-		Tower* t=(Tower*)branchEFlowNeutralHadron->At(j);
+		int hi=((Tower*)branchEFlowNeutralHadron->At(j))->Particles.IndexOf(mParticle);
+		if(hi>=0)
+		  {
+		    Tower* t=(Tower*)branchEFlowNeutralHadron->At(j);
 		//		cout <<"found corresponding hcal tower with E: "<< t->E<<endl;
+		  }
 	      }
 	  }
       
@@ -245,24 +268,27 @@ HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEF
       delta_track+=(ph_mom.E()-ph_mom.Pz());
     }
 
-  for(int i=0;i<branchEFlowNeutralHadron->GetEntries();i++)
-    {
-      Tower* nh=(Tower*)branchEFlowNeutralHadron->At(i);
-      if(fabs(nh->Eta)>4.0)
-	continue;
- 
-      TLorentzVector neutralHadron=nh->P4();
-      if(isnan(neutralHadron.E()))
-	 continue;
-
-      if(useTruth)
+  if(branchEFlowNeutralHadron!=0)
+    {    
+      for(int i=0;i<branchEFlowNeutralHadron->GetEntries();i++)
 	{
-	  //	  GenParticle* tp = (GenParticle*) nh->Particle.GetObject();
-	  //	  neutralHadron=tp->P4();
-	}
-      vSum+=neutralHadron;
-      delta_track+=(neutralHadron.E()-neutralHadron.Pz());
+	  Tower* nh=(Tower*)branchEFlowNeutralHadron->At(i);
+	  if(fabs(nh->Eta)>4.0)
+	    continue;
+ 
+	  TLorentzVector neutralHadron=nh->P4();
+	  if(isnan(neutralHadron.E()))
+	    continue;
+
+	  if(useTruth)
+	    {
+	      //	  GenParticle* tp = (GenParticle*) nh->Particle.GetObject();
+	      //	  neutralHadron=tp->P4();
+	    }
+	  vSum+=neutralHadron;
+	  delta_track+=(neutralHadron.E()-neutralHadron.Pz());
       
+	}
     }
     if(suppWithTruth)
       {

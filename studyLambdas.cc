@@ -231,6 +231,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
   
   cout <<"after use branch.." <<endl;
   Long64_t allEntries = treeReader->GetEntries();
+  cout <<"we have " << allEntries << endl;
 
   GenParticle *particle;
   Electron *electron;
