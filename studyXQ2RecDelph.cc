@@ -586,11 +586,12 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  getHadronPairs(pairsRec[i],pairsTrue[i],branchEFlowTrack,recBoost,realBoost);
 
       ////-----
-
-	  for(int j=0;i<pairsRec[j].size();j++)
+	  cout <<"looking at rec pairs " <<endl;
+	  for(int j=0;j<pairsRec[j].size();j++)
 	    {
 	      cout <<"rec phiR:" << pairsRec[i][j].phi_R <<" real: "<< pairsTrue[i][j].phi_R <<" % diff: "<< (pairsRec[i][j].phi_R-pairsTrue[i][j].phi_R)/pairsTrue[i][j].phi_R<<endl;
 	    }
+	  cout <<" done looking at rec pairs.. " << endl;
 	}      
       
       ////----
