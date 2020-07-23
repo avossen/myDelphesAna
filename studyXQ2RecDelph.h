@@ -1,6 +1,19 @@
 #include "TMath.h"
 #include "classes/DelphesClasses.h"
+
 using namespace std;
+
+
+float printLVect(TLorentzVector& v)
+{
+  cout <<"( " << v.Px() <<" " << v.Py() <<" " << v.Pz()<<" " << v.E()<< " )"<<endl;
+}
+
+float printVect(TVector3& v)
+{
+  cout <<"( " << v.Px() <<" " << v.Py() <<" " << v.Pz()<<" )"<<endl;
+}
+#include "HadronPair.h"
 struct Kins
 {
   float x;
@@ -9,6 +22,32 @@ struct Kins
   float nu;
   float W;
 };
+
+
+pair<double,double> getQz(double a, double b, double kappa, double y, double qT2, double Pz, double Pe,double Q2)
+{
+
+  double pHalf=1.0/(Pe*Pe*kappa)*(a*y+b)*Pz;
+  double q=-qT2/kappa+Q2/kappa+(a*y+b)*(a*y+b)/(Pe*Pe*kappa);
+
+  double c=pHalf*pHalf-q;
+  
+  if(c>0)
+    {
+      return pair<double,double>(-pHalf+sqrt(c),-pHalf-sqrt(c));
+    }
+  else
+    {
+      cout <<"qpart is 0 " <<endl;
+      return pair<double,double>(0,0);
+    }
+
+}
+
+float getQe(double a, double b, double y, double qT2, double Pz, double qz, double Pe)
+{
+  return (a*y+b+Pz*qz)/Pe;
+}
 
 float drawYContour(float yval,float beamEnergy, float hadronBeamEnergy)
 {
@@ -187,6 +226,65 @@ HadronicVars getOriginalHadronicVars(TClonesArray* branchParticles)
   ret.theta=2.*TMath::ATan(EMinusPz/vSum.Pt());
   return ret;
 }
+
+struct boostVars{
+  TVector3 breitBoost;
+  double W;
+  TLorentzVector lv_q;
+  TLorentzVector lv_l;
+};
+
+
+  void getHadronPairs(vector<HadronPair>& pairsRec, vector<HadronPair>& pairsTrue,TClonesArray* branchTracks, boostVars recBoost, boostVars realBoost)
+  {    
+  for(int i=0;i<branchTracks->GetEntries();i++)
+    {
+      Track* t=(Track*)branchTracks->At(i);
+
+      if(fabs(t->Eta)>4.0 || (fabs(t->P)<0.01))
+	{
+	  continue;
+	}
+      TLorentzVector track_mom=t->P4();
+      GenParticle* tp = (GenParticle*) t->Particle.GetObject();
+      if(isnan(track_mom.E()))
+	 continue;
+      //pi+
+      if(!((GenParticle*)t->Particle.GetObject())->PID==211)
+	continue;
+
+        for(int j=0;j<branchTracks->GetEntries();j++)
+	  {
+	    Track* t2=(Track*)branchTracks->At(j);
+	    TLorentzVector track_mom2=t2->P4();
+	    GenParticle* tp2 = (GenParticle*) t2->Particle.GetObject();
+	    if(fabs(t2->Eta)>4.0 || (fabs(t2->P)<0.01))
+	      {
+		continue;
+	      }
+	    if(isnan(track_mom2.E()))
+	      continue;
+	    //pi-
+	    if(!((GenParticle*)t2->Particle.GetObject())->PID==211)
+	      continue;
+	    //should put minimum cuts here, maybe z1, z2> 0.1
+	    HadronPair pairRec(track_mom,track_mom2,recBoost.breitBoost,recBoost.W,recBoost.lv_q,recBoost.lv_l);
+	    if(pairRec.z1< 0.1 || pairRec.z2<0.1)
+	      continue;
+	    pairsRec.push_back(pairRec);
+	    pairsTrue.push_back(HadronPair(tp->P4(),tp2->P4(),realBoost.breitBoost,realBoost.W,realBoost.lv_q,realBoost.lv_l));
+	  }
+    }
+      //      if(useTruth)
+      //	{
+      //	  GenParticle* tp = (GenParticle*) t->Particle.GetObject();
+      //	  track_mom=tp->P4();
+      //	}
+  }
+
+    
+
+
 
 HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEFlowTrack, TClonesArray* branchEFlowPhoton, TClonesArray* branchEFlowNeutralHadron, TClonesArray* branchTrack, TClonesArray* branchParticles)
 {

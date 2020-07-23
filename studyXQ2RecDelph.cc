@@ -28,6 +28,8 @@
  using namespace std;
 
 
+enum RecType{elec, hadronic, da, mixed, recTypeEnd};
+string recTypeNames[]={"elec","hadronic","da","mixed","mostlyLepton"};
  class ExRootTreeReader;
  class ExRootResult;
  const int corrBinsX=20;
@@ -69,6 +71,15 @@
    TH2* corrMixedQ2;
    TH2* corrMixedX;
 
+   TH2* ptMeans[5];
+   TH2* ptCounts[5];
+   TH2* ptDiffs[5];
+
+   TH2* phiRMeans[5];
+   TH2* phiRCounts[5];
+   TH2* phiRDiffs[5];
+   
+
  };
 
  void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int  hadronBeamEnergyI)
@@ -90,6 +101,26 @@
    plots->Q2VsXSmearJB=result->AddHist2D("Q2VsXSmearJB",buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
    plots->Q2VsXSmearMixed=result->AddHist2D("Q2VsXSmearMixed",buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
    plots->Q2VsXSmearNorm=result->AddHist2D("Q2VsXSmearNorm",buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
+
+
+   for(int i=0i<recTypeEnd;i++)
+     {
+       sprintf(buffer,"pt_mean_%s",recTypeNames[i]);
+       ptMeans[i]=result->AddHist1D(buffer,buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
+       sprintf(buffer,"pt_counts_%s",recTypeNames[i]);
+       ptCounts[i]=result->AddHist1D(buffer,buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
+       sprintf(buffer,"pt_diffs_%s",recTypeNames[i]);
+       ptDiffs[i]=result->AddHist1D(buffer,buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
+
+       sprintf(buffer"phiR_mean_%s",recTypeNames[i]);
+       phiRMeans[i]=result->AddHist2D(buffer,buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
+       sprintf(buffer,"phiR_counts_%s",recTypeNames[i]);
+       phiRCounts[i]=result->AddHist2D(buffer,buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
+       sprintf(buffer,"phiR_diffs_%s",recTypeNames[i]);
+       phiRDiffs[i]=result->AddHist2D(buffer,buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
+     }
+
+   
 
    plots->Q2CorrElec=result->AddHist2D("q2corrElec","q2corrElec","Q2 true", "Q2 rec",100,1,200,100,1,200,1,1);
    plots->Q2CorrJB=result->AddHist2D("q2corrJB","q2corrJB","Q2 true", "Q2 rec",100,1,200,100,1,200,1,1);
@@ -206,8 +237,8 @@
  void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEnergy, double hadronBeamEnergy,double sqrtS)
  {
    cout <<"in ana events " <<endl;
-   bool useTruth=false;
-   //    bool useTruth=true;
+      bool useTruth=false;
+   //       bool useTruth=true;
    float logQ2Range=4.3; //for 0.5 to 10k
    float logXRange=4;
 
@@ -267,6 +298,7 @@
     
        //      TLorentzVector  pProton    =  ((GenParticle*)branchParticle->At(0))->P4();// #these numbers 0 , 3, 5 are hardcoded in Pythia8
              TLorentzVector  pProton    =  ((GenParticle*)branchParticle->At(5))->P4();// #these numbers 0 , 3, 5 are hardcoded in Pythia8
+	     
  	    //      TLorentzVector	  pleptonIn    = ((GenParticle*)branchParticle->At(3))->P4();
  	    //seems to be different in dire as well...
  	          TLorentzVector	  pleptonIn    = ((GenParticle*)branchParticle->At(2))->P4();
@@ -283,7 +315,7 @@
        double  W2 = (pProton + pPhoton).M2();
        double  x = Q2 / (2. * pProton.Dot(pPhoton));
        double  y = (pProton.Dot(pPhoton)) / (pProton.Dot(pleptonIn));
-       cout <<"true q2: " << Q2 <<" x: " << x <<" y: " << y <<endl;
+       //       cout <<"true q2: " << Q2 <<" x: " << x <<" y: " << y <<endl;
     
        TLorentzVector e;
        Electron* electron;
@@ -296,19 +328,21 @@
  	{
  	  continue;
  	}
-       cout <<"study rec .." <<endl;
+       //       cout <<"study rec .." <<endl;
        studyReconstruction(branchParticle,branchEFlowTrack,branchEFlowPhoton,branchEFlowNeutralHadron,branchTrack);
 
-       cout <<"rec electron E: "<< e.E()<<endl;
-       cout << "true electron 1: "<< pleptonOut.E() <<endl;
+       //       cout <<"rec electron E: "<< e.E()<<endl;
+       //       cout << "true electron 1: "<< pleptonOut.E() <<endl;
        particle = (GenParticle*) electron->Particle.GetObject();
-       cout <<"truth from rec electron: "<< particle->E<<endl;
+       //       cout <<"truth from rec electron: "<< particle->E<<endl;
+
+       
        //      Kins kinOrig=getKinsFromScatElectron(pleptonIn.E(),pProton.E(),pleptonOut.Px(),pleptonOut.Py(),pleptonOut.Pz(),pleptonOut.E());
-             Kins kinOrig=getKinsFromScatElectron(beamEnergy,hadronBeamEnergy,particle->Px,particle->Py,particle->Pz,particle->E);
+       Kins kinOrig=getKinsFromScatElectron(beamEnergy,hadronBeamEnergy,particle->Px,particle->Py,particle->Pz,particle->E);
 
        Kins kinSmeared=getKinsFromScatElectron(beamEnergy,hadronBeamEnergy,e.Px(),e.Py(),e.Pz(),e.E());
        HadronicVars hvOrig=getOriginalHadronicVars(branchParticle);
-             HadronicVars hvSmeared=getHadronicVars(branchElectron, branchEFlowTrack, branchEFlowPhoton,branchEFlowNeutralHadron,branchTrack,branchParticle);
+       HadronicVars hvSmeared=getHadronicVars(branchElectron, branchEFlowTrack, branchEFlowPhoton,branchEFlowNeutralHadron,branchTrack,branchParticle);
  	    //
 	     //	    HadronicVars hvSmeared=getHadronicVars(branchElectron, branchTrack, branchEFlowPhoton,branchEFlowNeutralHadron,branchTrack,branchParticle);
 
@@ -322,6 +356,8 @@
       plots->angTrue->Fill(hvOrig.theta);
       plots->angRes->Fill(hvSmeared.theta-hvOrig.theta);
       plots->angCorr->Fill(hvSmeared.theta, hvOrig.theta);
+
+
 
       
       if(useTruth)
@@ -338,7 +374,7 @@
 	  kinDASmeared=getKinsDA(particle->Px,particle->Py,particle->Pz ,particle->E,beamEnergy,hvSmeared.theta, sqrtS*sqrtS);
 	}
 
-      cout <<"jb y: "<< kinJBSmeared.y << " sqrtS: "<< sqrtS <<endl;
+      //      cout <<"jb y: "<< kinJBSmeared.y << " sqrtS: "<< sqrtS <<endl;
       float mixedXSmeared=kinSmeared.Q2/(sqrtS*sqrtS*kinJBSmeared.y);
       
       double binlogOrigQ2=log10(kinOrig.Q2);
@@ -347,12 +383,238 @@
       double binRecX=log10(kinSmeared.x);
 
 
+      TLorentzVector qOrig;
+      qOrig.SetPxPyPzE(particle->Px,particle->Py,particle->Pz,particle->E);
+      /////////
+      TLorentzVector qH;
+
+      //diff is sum since they should be in opposite directions
+      //      cout <<"hv smeard pz: "<< hvSmeared.sumPz <<" lepton pz: "<< e.Pz() <<" diff: " << hvSmeared.sumPz+e.Pz()<<endl;
+      qH.SetPxPyPzE(-hvSmeared.sumPx,-hvSmeared.sumPy,-hvSmeared.sumPz,hvSmeared.sumE);
+      //l direction, h size
+      TLorentzVector qLH;
+      //
+      TVector3 eDir(e.Px(),e.Py(),e.Pz());
+      //      cout <<" edir: " << printVect(eDir);
+      eDir.SetMag(qH.Vect().Mag());
+      //      cout <<" after set mag: " << printVect(eDir);
+      qLH.SetVectMag(eDir,sqrt(kinSmeared.Q2));
+      //      cout <<"resulting qlh: " << printLVect(qLH);
+      //only lepton
+      TLorentzVector qL;
+      qL.SetPxPyPzE(e.Px(),e.Py(),e.Pz(),e.E());
+      //      cout <<" l dir: "<< printLVect(qL);
+      //now we have the outgoing lepton direction, q is in-out
+
+      //rec outgoing electron is 'e', true is plepton out
+      ///kinOrig.x
+      //calculate initial pz of parton
+      //      cout <<" hv orig sum: "<< hvOrig.sumPz <<" hv smeared: "<< hvSmeared.sumPz <<" diff: "<< hvOrig.sumPz - hvSmeared.sumPz <<endl;
+      //      cout <<" h sum pz: "<< hvSmeared.sumPz << " l pz: " << pleptonOut.Pz() <<endl;
+      //      cout <<"initial pz sum: " << kinOrig.x*hadronBeamEnergy-beamEnergy <<" and then " << hvSmeared.sumPz+pleptonOut.Pz()  <<" diff: "<< kinOrig.x*hadronBeamEnergy-beamEnergy -( hvSmeared.sumPz+pleptonOut.Pz()) <<endl;
+      //            cout <<"same w/o  x:initial pz sum: " << hadronBeamEnergy-beamEnergy <<" and then " << hvSmeared.sumPz+pleptonOut.Pz()  <<" diff: "<< hadronBeamEnergy-beamEnergy -( hvSmeared.sumPz+pleptonOut.Pz()) <<endl;
+      
+      
+      qH=pleptonIn-qH;
+      qL=pleptonIn-qL;
+      qLH=pleptonIn-qLH;
+      qOrig=pleptonIn-qOrig;
+
+
+      //////////////////////////
+      //-->same for all
+      double kappa=pProton.Pz()*pProton.Pz()/(pProton.E()*pProton.E())-1;
+      double a=pProton.Dot(pleptonIn);
+      double Pz=pProton.Pz();
+      //      double Q2=kinOrig.Q2;
+      double Pe=pProton.E();
+      /////////
+      
+      double hPx=hvSmeared.sumPx;
+      double hPy=hvSmeared.sumPy;
+      
+      //calculate qTx: (lx-l'x), qTy: (y-l'x). l'x=-hx, l'y=hy
+      ///
+      double qTx=pleptonIn.Px()+hPx;
+      double qTy=pleptonIn.Py()+hPy;
+      
+
+      double b=pProton.Px()*qTx+pProton.Py()*qTy;
+      double qT2=qTx*qTx+qTy*qTy;
+      //      double y=
+
+      ///here there would be differences depending on the y, Q2 used
+
+      double usedQ2[5];
+      double usedy[5];
+      for(int i=0;i<recTypeEnd;i++)
+	{
+	  switch(i)
+	    {
+	      enum RecType{elec, hadronic, da, mixed, mostlyLepton,recTypeEnd};
+	    case elec:
+	      usedQ2[i]=kinSmeared.Q2;
+	      usedy[i]=kinSmeared.y;
+	      break;
+
+	    case hadronic:
+	      usedQ2[i]=kinJBSmeared.Q2;
+	      usedy[i]=kinJBSmeared.y;
+	      break;
+
+	    case da:
+	      usedQ2[i]=kinDASmeared.Q2;
+	      usedy[i]=kinDASmeared.y;
+	      break;
+
+	    case mixed:
+	      usedQ2[i]=kinSmeared.Q2;
+	      usedy[i]=kinJBSmeared.y;
+	      break;
+
+	    case mostlyLepton:
+	      usedQ2[i]=kinSmeared.Q2;
+	      usedy[i]=kinSmeared.y;
+	      break;
+
+	    default: 
+	      cout <<"something wrong"<<endl;
+	    }
+	  
+	}
+      pair<float,float> res[5];
+      double qE[5];
+      TLorentzVector q[5];
+      TLorentzVector q_P[5];
+      TVector3 q_bv[5];
+      double W[5];
+
+      TLorentzVector qElec=pleptonIn-e;
+      
+      for(int i=0;i<recTypeEnd;i++)
+	{
+	  res[i]=getQz(a,b,kappa,usedy[i],qT2,Pz,Pe,usedQ2[i]);
+	  double qz=res.second;
+	  if(fabs(qz-res.second)>fabs(qz-res.first))
+	    qz=res.first;
+	  qE[i]=getQe(a,b,usedy[i],qT2,Pz,qz,Pe);
+
+	  //	         Kins kinSmeared=getKinsFromScatElectron(beamEnergy,hadronBeamEnergy,e.Px(),e.Py(),e.Pz(),e.E());
+	  if(i==elec)
+	    {
+	      q[i]=qElec;
+	    }
+	  else
+	    {
+	      q[i]=TLorentzVector(qTx,qTy,qz,qE[i]);
+	    }
+	  q_P[i]=q[i]+pProton;
+	  q_bv[i]=q_P[i].BoostVector();
+	  q_bv[i]=(-1)*q_bv[i];
+	  W[i]=q_P[i].M();
+	}
+      
+      //      pair<float,float> resJB=getQz(a,b,kappa,kinJBSmeared.y,qT2,Pz,Pe,kinJBSmeared.Q2);
+      //      pair<float,float> resDA=getQz(a,b,kappa,kinDASmeared.y,qT2,Pz,Pe,kinDASmeared.Q2);
+      //      pair<float,float> resMixed=getQz(a,b,kappa,kinJBSmeared.y,qT2,Pz,Pe,kinSmeared.Q2);mix
+      //      pair<float,float> resMostlyLepton=getQz(a,b,kappa,kinJBSmeared.y,qT2,Pz,Pe,kinJBSmeared.Q2);
+
+
+
+      
+      //      double qz=res.second;
+      //      double qE=getQe(a,b,y,qT2,Pz,qz,Pe);
+
+
+
+      //----> use the other qs here
+
+
+
+      
+      //      cout <<"qh: "<< printLVect(qH) <<endl;
+      //      cout <<"ql: "<< printLVect(qL) <<endl;
+      //      cout <<"qlh: "<< printLVect(qLH) <<endl;
+      //      cout <<"qOrig: "<< printLVect(qOrig) <<endl;
+      
+      //calculate the boost to the p-q system
+
+      
+      TLorentzVector qH_P=qH+pProton;
+      TLorentzVector qL_P=qL+pProton;
+      TLorentzVector qLH_P=qLH+pProton;
+      TLorentzVector qOrig_P=qOrig+pProton;
+
+      float WH=qH_P.M();
+      float WL=qL_P.M();
+      float WLH=qLH_P.M();
+      float WOrig=qOrig_P.M();
+      
+      TVector3 qH_bv=qH_P.BoostVector();
+      TVector3 qL_bv=qL_P.BoostVector();
+      TVector3 qLH_bv=qLH_P.BoostVector();
+      TVector3 orig_bv=qOrig_P.BoostVector();
+
+      qH_bv=(-1)*qH_bv;
+      qL_bv=(-1)*qL_bv;
+      qLH_bv=(-1)*qLH_bv;
+      orig_bv=(-1)*orig_bv;
+      ///      -->try to get qe not from y but from qz directly (via scattered electron)
+      ////////////////////////
+      vector<HadronPair> pairsRec[5];
+      vector<HadronPair> pairsTrue[5];
+      boostVars recBoost;
+      boostVars realBoost;
+
+      recBoost.breitBoost=orig_bv;
+      recBoost.W=WLH;
+      recBoost.lv_q=qLH;
+      //this is the beam
+      TLorentzVector lv_beam;
+      lv_beam.SetPxPyPzE(0.0,0.0,beamEnergy,
+      recBoost.lv_l=lv_beam;
+      
+      realBoost.breitBoost=orig_bv;
+      realBoost.W=WOrig;
+      realBoost.lv_q=qOrig;
+      realBoost.lv_l=lv_beam;
+            for(int i=0;i<recTypeEnd;i++)
+	      {
+		getHadronPairs(pairsRec[i],pairsTrue[i],branchEFlowTrack,recBoost,realBoost);
+	      }
+      ////-----
+
+      for(int i=0;i<pairsRec.size();i++)
+	{
+	  cout <<"rec phiR:" << pairsRec[i].phi_R <<" real: "<< pairsTrue[i].phi_R <<" % diff: "<< (pairsRec[i].phi_R-pairsTrue[i].phi_R)/pairsTrue[i].phi_R<<endl;
+	}
+      
+      
+      ////----
+      //to get q one can get it only from hadron or use the lepton direction and the Q2 for the length
+      ////----
+      
+      //      cout <<" qH: "<< printLVect(qH);
+      //      cout <<" qLH: ";//<< printLVect(qLH);
+      //      cout <<" qL: ";//<< printLVect(qL);
+
+      ////      gN.add(lv_target);
+		// System.out.println("gN x " + gN.px()+ " y: "+gN.py() + " pz: " +gN.pz() + "
+		// e: "+ gN.e() );
+      ///		Walt = gN.mass();
+		//System.out.println("W: " + W  + " Walt: "+ Walt);
+		
+		//		gNBoost = gN.boostVector();
+		//		gNBoost.negative();
+		
+
       cout <<" reconstructed orig x " << kinOrig.x <<" Q2: "<< kinOrig.Q2 <<endl;
       cout <<" reconstructed smear x " << kinSmeared.x <<" Q2: "<< kinSmeared.Q2 <<endl;
       cout <<" reconstructed JB x " << kinJBSmeared.x <<" Q2: "<< kinJBSmeared.Q2 <<endl;
       cout <<" reconstructed DA x " << kinDASmeared.x <<" Q2: "<< kinDASmeared.Q2 <<endl;
       cout <<" reconstructed mixed x " << mixedXSmeared <<endl;
       plots->Q2VsXSmearNorm->Fill(kinOrig.x,kinOrig.Q2);
+      
       if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBinsQ2) && fabs(binlogOrigX-binRecX)<logXRange/(2*corrBinsX))
 	{
 	  plots->Q2VsXSmear->Fill(kinOrig.x,kinOrig.Q2);
@@ -423,6 +685,9 @@ int main(int argc, char** argv)
   char buffer[200];
   gStyle->SetOptStat(0);
 
+
+
+  
   
   srand(time(NULL));
   if(argc<4)
