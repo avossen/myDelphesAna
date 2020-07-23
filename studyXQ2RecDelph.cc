@@ -587,7 +587,8 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
       ////-----
 	  cout <<"looking at rec pairs " <<endl;
-	  for(int j=0;j<pairsRec[j].size();j++)
+	  cout <<" running over " << pairsRec[i].size() << " pairs " <<endl;
+	  for(int j=0;j<pairsRec[i].size();j++)
 	    {
 	      cout <<"rec phiR:" << pairsRec[i][j].phi_R <<" real: "<< pairsTrue[i][j].phi_R <<" % diff: "<< (pairsRec[i][j].phi_R-pairsTrue[i][j].phi_R)/pairsTrue[i][j].phi_R<<endl;
 	    }
