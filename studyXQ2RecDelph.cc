@@ -28,8 +28,8 @@
 using namespace std;
 
 
-enum RecType{elec, hadronic, da, mixed, recTypeEnd};
-string recTypeNames[]={"elec","hadronic","da","mixed","mostlyLepton"};
+enum RecType{elec, hadronic, da, mixed, mostlyLepton, truth,recTypeEnd};
+string recTypeNames[]={"elec","hadronic","da","mixed","mostlyLepton","truth"};
 class ExRootTreeReader;
 class ExRootResult;
 const int corrBinsX=20;
@@ -71,15 +71,22 @@ struct TestPlots
   TH2* corrMixedQ2;
   TH2* corrMixedX;
 
-  TH2* ptMeans[5];
-  TH2* ptCounts[5];
-  TH2* ptDiffs[5];
 
-  TH2* phiRMeans[5];
-  TH2* phiRCounts[5];
-  TH2* phiRDiffs[5];
-   
+  TH2* zMeans[6];
+  TH2* zDiffs[6];
+  
+  TH2* ptMeans[6];
+  //only need counter for one hadron pair related variable...
+  TH2* ptCounts[6];
+  TH2* ptDiffs[6];
 
+  TH2* phiRMeans[6];
+  TH2* phiRDiffs[6];
+
+  TH1*** phiRHistos[6];
+  
+  vector<float> zBins;
+  vector<float> yBins;
 };
 
 void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int  hadronBeamEnergyI)
@@ -102,7 +109,20 @@ void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int 
   plots->Q2VsXSmearMixed=result->AddHist2D("Q2VsXSmearMixed",buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
   plots->Q2VsXSmearNorm=result->AddHist2D("Q2VsXSmearNorm",buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
 
-
+  for(int i=0;i<recTypeEnd;i++)
+    {
+      plots->phiRHistos[i]=new TH1**[plots->zBins.size()];
+      for(int j=0;j<plots->zBins.size();j++)
+	{
+	  plots->phiRHistos[i][j]=new TH1*[plots->yBins.size()];
+	  for(int k=0;k<plots->yBins.size();k++)
+	    {
+	      sprintf(buffer,"phi_R_%s_zBin_%d_yBin_%d",recTypeNames[i].c_str(),j,k);
+	      plots->phiRHistos[i][j][k]=result->AddHist1D(buffer,buffer,"phi_R","counts",30,0,2*TMath::Pi());
+	    }
+	}
+    }
+  
   for(int i=0;i<recTypeEnd;i++)
     {
       sprintf(buffer,"pt_mean_%s",recTypeNames[i].c_str());
@@ -112,15 +132,21 @@ void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int 
       sprintf(buffer,"pt_diffs_%s",recTypeNames[i].c_str());
        plots->ptDiffs[i]=result->AddHist2D(buffer,buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
 
+
+      sprintf(buffer,"z_mean_%s",recTypeNames[i].c_str());
+      plots->zMeans[i]=result->AddHist2D(buffer,buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
+      sprintf(buffer,"z_diffs_%s",recTypeNames[i].c_str());
+       plots->zDiffs[i]=result->AddHist2D(buffer,buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
+
+       
        sprintf(buffer,"phiR_mean_%s",recTypeNames[i].c_str());
        plots->phiRMeans[i]=result->AddHist2D(buffer,buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
-      sprintf(buffer,"phiR_counts_%s",recTypeNames[i].c_str());
-       plots->phiRCounts[i]=result->AddHist2D(buffer,buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
-      sprintf(buffer,"phiR_diffs_%s",recTypeNames[i].c_str());
+
+       sprintf(buffer,"phiR_diffs_%s",recTypeNames[i].c_str());
        plots->phiRDiffs[i]=result->AddHist2D(buffer,buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
     }
 
-   
+  cout <<"done with my histoos " << endl;
 
   plots->Q2CorrElec=result->AddHist2D("q2corrElec","q2corrElec","Q2 true", "Q2 rec",100,1,200,100,1,200,1,1);
   plots->Q2CorrJB=result->AddHist2D("q2corrJB","q2corrJB","Q2 true", "Q2 rec",100,1,200,100,1,200,1,1);
@@ -195,6 +221,35 @@ void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int 
 
   BinLog(plots->corrMixedX->GetXaxis());
 
+  cout <<"setting logs " <<endl;
+
+  cout <<endl;
+    for(int i=0;i<recTypeEnd;i++)
+    {
+      cout <<" doing i " << i <<endl;
+      BinLog(plots->ptMeans[i]->GetXaxis());
+      BinLog(plots->ptMeans[i]->GetYaxis());
+      
+      BinLog(plots->ptDiffs[i]->GetXaxis());
+      BinLog(plots->ptDiffs[i]->GetYaxis());
+      
+      BinLog(plots->ptCounts[i]->GetXaxis());
+      BinLog(plots->ptCounts[i]->GetYaxis());
+      cout <<" done pt " << endl;
+      BinLog(plots->zMeans[i]->GetXaxis());
+      BinLog(plots->zMeans[i]->GetYaxis());
+      BinLog(plots->zDiffs[i]->GetXaxis());
+      BinLog(plots->zDiffs[i]->GetYaxis());
+      cout <<" done z " << endl;
+      BinLog(plots->phiRMeans[i]->GetXaxis());
+      BinLog(plots->phiRMeans[i]->GetYaxis());
+      
+      BinLog(plots->phiRDiffs[i]->GetXaxis());
+      BinLog(plots->phiRDiffs[i]->GetYaxis());
+      cout <<" done with this iteration " <<endl;
+    }
+  cout <<"done .." <<endl;
+  
   //  BinLog(plots->corrConventionalQ2SmallY->GetXaxis());
   //  BinLog(plots->corrConventionalXSmallY->GetXaxis());
 
@@ -237,7 +292,7 @@ void PrintHistograms(ExRootResult *result, TestPlots *plots)
 void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEnergy, double hadronBeamEnergy,double sqrtS)
 {
   cout <<"in ana events " <<endl;
-  bool useTruth=false;
+    bool useTruth=false;
   //       bool useTruth=true;
   float logQ2Range=4.3; //for 0.5 to 10k
   float logXRange=4;
@@ -278,13 +333,22 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
   for(entry=0;entry < allEntries;++entry)
     {
+      if(entry%5000==0)
+	{
+	  cout <<"looking at event " << entry <<" of " << allEntries <<" : " <<100*entry/allEntries <<" % " <<endl;
+	}
+
+      if(entry/(double)allEntries>0.1)
+	{
+	  break;
+	}
       treeReader->ReadEntry(entry);
 
       //	     # four-momenta of proton, electron, virtual photon/Z^0/W^+-.                                                                       //this is the truth                                         
       //      cout <<"going through entry " << entry <<endl;
       //      cout <<" is there a pointer here? " << branchParticle->At(0) <<endl;
 
-      cout <<"branch event has " << branchEvent->GetEntries() <<endl;
+      //      cout <<"branch event has " << branchEvent->GetEntries() <<endl;
 
     
       if(branchParticle->GetEntries()>10)
@@ -292,7 +356,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
  	  for(int i=0;i<10;i++)
 	    {
 	      GenParticle* g=((GenParticle*)branchParticle->At(i));
-	      cout <<"particle at index " <<i   <<" pid: " << g->PID << " energy: "<< g->E <<endl;
+	      //	      cout <<"particle at index " <<i   <<" pid: " << g->PID << " energy: "<< g->E <<endl;
 	    }
 	}
     
@@ -302,14 +366,14 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       //      TLorentzVector	  pleptonIn    = ((GenParticle*)branchParticle->At(3))->P4();
       //seems to be different in dire as well...
       TLorentzVector	  pleptonIn    = ((GenParticle*)branchParticle->At(2))->P4();
-      cout <<"proton... has energy: " << pProton.E() <<" lepton in: " << pleptonIn.E() <<endl;
-      cout <<"lepton..." <<endl;
+      //      cout <<"proton... has energy: " << pProton.E() <<" lepton in: " << pleptonIn.E() <<endl;
+      //      cout <<"lepton..." <<endl;
       //      TLorentzVector	  pleptonOut   = ((GenParticle*)branchParticle->At(5))->P4();
       //in the dire output this is at 4 (probably because coordinate system was switched originally)
       TLorentzVector	  pleptonOut   = ((GenParticle*)branchParticle->At(4))->P4();
-      cout <<"lep out..." <<endl;
+      //      cout <<"lep out..." <<endl;
       TLorentzVector	  pPhoton      = pleptonIn - pleptonOut;
-      cout <<"photon..." <<endl;
+      //      cout <<"photon..." <<endl;
       //Q2, W2, Bjorken x, y, nu.                                                                                                                                                  
       double  Q2 = -pPhoton.M2();
       double  W2 = (pProton + pPhoton).M2();
@@ -445,13 +509,13 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
       ///here there would be differences depending on the y, Q2 used
 
-      double usedQ2[5];
-      double usedy[5];
+      double usedQ2[6];
+      double usedy[6];
       for(int i=0;i<recTypeEnd;i++)
 	{
 	  switch(i)
 	    {
-	      enum RecType{elec, hadronic, da, mixed, mostlyLepton,recTypeEnd};
+	      //	      enum RecType{elec, hadronic, da, mixed, mostlyLepton, truth,recTypeEnd};
 	    case elec:
 	      usedQ2[i]=kinSmeared.Q2;
 	      usedy[i]=kinSmeared.y;
@@ -477,17 +541,22 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	      usedy[i]=kinSmeared.y;
 	      break;
 
+	    case truth:
+	      usedQ2[i]=Q2;
+	      usedy[i]=y;
+	      break;
+	      
 	    default: 
 	      cout <<"something wrong"<<endl;
 	    }
 	  
 	}
-      pair<float,float> res[5];
-      double qE[5];
-      TLorentzVector q[5];
-      TLorentzVector q_P[5];
-      TVector3 q_bv[5];
-      double W[5];
+      pair<float,float> res[6];
+      double qE[6];
+      TLorentzVector q[6];
+      TLorentzVector q_P[6];
+      TVector3 q_bv[6];
+      double W[6];
 
       TLorentzVector qElec=pleptonIn-e;
       
@@ -495,10 +564,11 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	{
 	  res[i]=getQz(a,b,kappa,usedy[i],qT2,Pz,Pe,usedQ2[i]);
 	  double qz=res[i].second;
-	  if(fabs(qz-res[i].second)>fabs(qz-res[i].first))
-	    qz=res[i].first;
+	  if(fabs(qElec.Pz()-res[i].second)>fabs(qElec.Pz()-res[i].first))
+	    {
+	      qz=res[i].first;
+	    }
 	  qE[i]=getQe(a,b,usedy[i],qT2,Pz,qz,Pe);
-
 	  //	         Kins kinSmeared=getKinsFromScatElectron(beamEnergy,hadronBeamEnergy,e.Px(),e.Py(),e.Pz(),e.E());
 	  if(i==elec)
 	    {
@@ -506,13 +576,28 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	    }
 	  else
 	    {
-	      q[i]=TLorentzVector(qTx,qTy,qz,qE[i]);
+	      if(i==truth)
+		{
+		  q[i]=pPhoton;
+		}
+	      else
+		{
+		  q[i]=TLorentzVector(qTx,qTy,qz,qE[i]);
+		}
 	    }
 	  q_P[i]=q[i]+pProton;
 	  q_bv[i]=q_P[i].BoostVector();
 	  q_bv[i]=(-1)*q_bv[i];
 	  W[i]=q_P[i].M();
 	}
+
+      //      cout <<"orig q: "<< printLVect(qOrig) <<endl;
+        for(int i=0;i<recTypeEnd;i++)
+	{
+	  //	  cout <<recTypeNames[i]<<": " << printLVect(q[i]) <<endl;
+	}
+
+      
       
       //      pair<float,float> resJB=getQz(a,b,kappa,kinJBSmeared.y,qT2,Pz,Pe,kinJBSmeared.Q2);
       //      pair<float,float> resDA=getQz(a,b,kappa,kinDASmeared.y,qT2,Pz,Pe,kinDASmeared.Q2);
@@ -561,8 +646,8 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       orig_bv=(-1)*orig_bv;
       ///      -->try to get qe not from y but from qz directly (via scattered electron)
       ////////////////////////
-      vector<HadronPair> pairsRec[5];
-      vector<HadronPair> pairsTrue[5];
+      vector<HadronPair> pairsRec[6];
+      vector<HadronPair> pairsTrue[6];
       boostVars recBoost;
       boostVars realBoost;
 
@@ -577,23 +662,87 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       realBoost.W=WOrig;
       realBoost.lv_q=qOrig;
       realBoost.lv_l=pleptonIn;
+
+
+      ///get real x, q2 bin
+      int xBin=0;
+      int q2Bin=0;
+
+      //      cout <<"getting axis " <<endl;
+      TAxis *xaxis = plots->Q2VsXSmearNorm->GetXaxis();
+      TAxis *yaxis = plots->Q2VsXSmearNorm->GetYaxis();
+      xBin = xaxis->FindBin(kinOrig.x);
+      q2Bin = yaxis->FindBin(kinOrig.Q2);
+      //      cout <<"using xbin: "<< xBin <<" q2Bin: "<< q2Bin << " for x: "<< kinOrig.x <<" q2: " << kinOrig.Q2 <<endl;
+      //      cout <<"done " <<endl;
+
+
+      
       for(int i=0;i<recTypeEnd;i++)
 	{
 	  recBoost.breitBoost=q_bv[i];
 	  recBoost.W=W[i];
 	  recBoost.lv_q=q[i];
 	  recBoost.lv_l=pleptonIn;
-	  getHadronPairs(pairsRec[i],pairsTrue[i],branchEFlowTrack,recBoost,realBoost);
-
+	  if(i==truth)
+	    getHadronPairs(pairsRec[i],pairsTrue[i],branchEFlowTrack,recBoost,realBoost,Pz,true,false,false);
+	  else
+	    getHadronPairs(pairsRec[i],pairsTrue[i],branchEFlowTrack,recBoost,realBoost,Pz,false,false,false);
       ////-----
-	  cout <<"looking at rec pairs " <<endl;
-	  cout <<" running over " << pairsRec[i].size() << " pairs " <<endl;
+	  ///	  	  cout <<"looking at rec pairs " <<endl;
+	  ////	  	  cout <<" running over " << pairsRec[i].size() << " pairs for comb " << recTypeNames[i] <<endl;
+
+	  //	  cout <<" num pairs " << pairsRec[i].size() <<endl;
 	  for(int j=0;j<pairsRec[i].size();j++)
 	    {
-	      cout <<"rec phiR:" << pairsRec[i][j].phi_R <<" real: "<< pairsTrue[i][j].phi_R <<" % diff: "<< (pairsRec[i][j].phi_R-pairsTrue[i][j].phi_R)/pairsTrue[i][j].phi_R<<endl;
+	      
+	      if(!checkSanity(pairsTrue[i][j]))
+		{
+		  continue;
+		}
+	      if( !checkSanity(pairsRec[i][j]))
+		{
+		  continue;
+		}
+	      
+	      int zBin=getBin(plots->zBins,pairsTrue[i][j].z);
+	      int yBin=getBin(plots->yBins,y);
+	      if(zBin < 0 || yBin < 0)
+		{
+		  	  cout <<"wrong z, y bin " <<endl;
+		  continue;
+		}
+	      //	      cout <<"zBin: "<< zBin << " yBin: "<< yBin <<" z: "<< pairsTrue[i][j].z<<" y: "<< y<<endl;
+
+
+	      if(pairsRec[i][j].phi_R < 0 ||  pairsRec[i][j].phi_R> 2*TMath::Pi())
+		//		cout <<" phi not in range " <<endl;
+	      cout <<"filling with index " << i <<endl;
+	      if(i==truth)
+		{
+		  plots->phiRHistos[i][zBin][yBin]->Fill(pairsTrue[i][j].phi_R);
+		}
+	      else
+		{
+		  plots->phiRHistos[i][zBin][yBin]->Fill(pairsRec[i][j].phi_R);
+		}
+	      
+	      ///	      	      cout <<"rec phiR:" << pairsRec[i][j].phi_R <<" real: "<< pairsTrue[i][j].phi_R <<" % diff: "<< (pairsRec[i][j].phi_R-pairsTrue[i][j].phi_R)/pairsTrue[i][j].phi_R<<endl;
+	      plots->ptMeans[i]->SetBinContent(xBin,q2Bin,plots->ptMeans[i]->GetBinContent(xBin,q2Bin)+pairsTrue[i][j].pT);
+	      //	      cout <<"filling with pt true: "<< pairsTrue[i][j].pT <<" rec: " << pairsRec[i][j].pT <<endl;
+	      plots->ptCounts[i]->SetBinContent(xBin,q2Bin,plots->ptCounts[i]->GetBinContent(xBin,q2Bin)+1);
+	      plots->ptDiffs[i]->SetBinContent(xBin,q2Bin,plots->ptDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].pT-pairsTrue[i][j].pT)/fabs(pairsTrue[i][j].pT));
+	      //	      	      cout <<"filling with z1: "<< pairsTrue[i][j].z1 <<" z2: "<< pairsTrue[i][j].z2 <<endl;
+	      //      	      cout <<"filling with rec z1: "<< pairsRec[i][j].z1 <<" z2: "<< pairsRec[i][j].z2 <<endl;
+	      plots->zMeans[i]->SetBinContent(xBin,q2Bin,plots->zMeans[i]->GetBinContent(xBin,q2Bin)+pairsTrue[i][j].z1);
+	      plots->zMeans[i]->SetBinContent(xBin,q2Bin,plots->zMeans[i]->GetBinContent(xBin,q2Bin)+pairsTrue[i][j].z2);
+	      plots->zDiffs[i]->SetBinContent(xBin,q2Bin,plots->zDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].z1-pairsTrue[i][j].z1)/fabs(pairsTrue[i][j].z1));
+	      plots->zDiffs[i]->SetBinContent(xBin,q2Bin,plots->zDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].z2-pairsTrue[i][j].z2)/fabs(pairsTrue[i][j].z2));
+	      plots->phiRMeans[i]->SetBinContent(xBin,q2Bin,plots->phiRMeans[i]->GetBinContent(xBin,q2Bin)+pairsTrue[i][j].phi_R);
+	      plots->phiRDiffs[i]->SetBinContent(xBin,q2Bin,plots->phiRDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].phi_R-pairsTrue[i][j].phi_R)/fabs(pairsTrue[i][j].phi_R));
 	    }
-	  cout <<" done looking at rec pairs.. " << endl;
-	}      
+	  //	  cout <<" done looking at rec pairs.. " << endl;
+	}
       
       ////----
       //to get q one can get it only from hadron or use the lepton direction and the Q2 for the length
@@ -613,11 +762,11 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       //		gNBoost.negative();
 		
 
-      cout <<" reconstructed orig x " << kinOrig.x <<" Q2: "<< kinOrig.Q2 <<endl;
-      cout <<" reconstructed smear x " << kinSmeared.x <<" Q2: "<< kinSmeared.Q2 <<endl;
-      cout <<" reconstructed JB x " << kinJBSmeared.x <<" Q2: "<< kinJBSmeared.Q2 <<endl;
-      cout <<" reconstructed DA x " << kinDASmeared.x <<" Q2: "<< kinDASmeared.Q2 <<endl;
-      cout <<" reconstructed mixed x " << mixedXSmeared <<endl;
+      //      cout <<" reconstructed orig x " << kinOrig.x <<" Q2: "<< kinOrig.Q2 <<endl;
+      //      cout <<" reconstructed smear x " << kinSmeared.x <<" Q2: "<< kinSmeared.Q2 <<endl;
+      //      cout <<" reconstructed JB x " << kinJBSmeared.x <<" Q2: "<< kinJBSmeared.Q2 <<endl;
+      //      cout <<" reconstructed DA x " << kinDASmeared.x <<" Q2: "<< kinDASmeared.Q2 <<endl;
+      //      cout <<" reconstructed mixed x " << mixedXSmeared <<endl;
       plots->Q2VsXSmearNorm->Fill(kinOrig.x,kinOrig.Q2);
       
       if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBinsQ2) && fabs(binlogOrigX-binRecX)<logXRange/(2*corrBinsX))
@@ -634,15 +783,15 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       
       binRecQ2=log10(kinJBSmeared.Q2);
       binRecX=log10(kinJBSmeared.x);
-      cout <<"jb q2: "<< kinJBSmeared.Q2 <<" x: "<< kinJBSmeared.x <<" log q2: "<< binRecQ2 <<" log x: "<< binRecX << " binlogOrig: " << binlogOrigQ2 <<" x: "<< binlogOrigX <<endl;
+      //      cout <<"jb q2: "<< kinJBSmeared.Q2 <<" x: "<< kinJBSmeared.x <<" log q2: "<< binRecQ2 <<" log x: "<< binRecX << " binlogOrig: " << binlogOrigQ2 <<" x: "<< binlogOrigX <<endl;
       if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBinsQ2) && fabs(binlogOrigX-binRecX)<logXRange/(2*corrBinsX))
 	{
-	  cout <<" in bin " <<endl;
+	  //	  cout <<" in bin " <<endl;
 	  plots->Q2VsXSmearJB->Fill(kinOrig.x,kinOrig.Q2);
 	}
       else
 	{
-	  cout <<" not in bin " <<endl;
+	  //	  cout <<" not in bin " <<endl;
 	}
       binRecQ2=log10(kinSmeared.Q2);
       binRecX=log10(mixedXSmeared);
@@ -687,12 +836,14 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
 int main(int argc, char** argv)
 {
+
+  
+  int colors[]={kRed,kBlue,kGreen,kBlack,kCyan,kMagenta};
+  int markerStyles[]={20,21,22,23,24,25};
+
   char buffer[200];
   gStyle->SetOptStat(0);
 
-
-
-  
   
   srand(time(NULL));
   if(argc<4)
@@ -736,6 +887,18 @@ int main(int argc, char** argv)
   ExRootResult *result = new ExRootResult();
 
   TestPlots *plots = new TestPlots;
+  
+  plots->zBins.push_back(0.2);
+  plots->zBins.push_back(0.3);
+  plots->zBins.push_back(0.5);
+  plots->zBins.push_back(2.0);
+  
+  plots->yBins.push_back(0.1);
+  plots->yBins.push_back(0.2);
+  plots->yBins.push_back(0.5);
+  plots->yBins.push_back(0.8);
+  plots->yBins.push_back(2.0);
+  
   cout <<" book histogram: " << endl;
   BookHistograms(result, plots,beamEnergyI,hadronBeamEnergyI);
   cout <<" analyze events: " << endl;
@@ -752,7 +915,7 @@ int main(int argc, char** argv)
   
   c1.SetLogy();
   c1.SetLogx();
-  cout <<"first... "<<endl;  
+  //  cout <<"first... "<<endl;  
 
   plots->Q2VsXSmear->SetMaximum(1.0);
   plots->Q2VsXSmear->SetMinimum(0.0);
@@ -768,13 +931,132 @@ int main(int argc, char** argv)
   plots->Q2VsXSmearMixed->SetMinimum(0.0);
 
 
+
+  int d=sqrt(plots->zBins.size());
+  if(d< sqrt(plots->zBins.size()))
+    d++;
+  c1.Divide(d,d);
+
+
+  c1.SetLogy(false);
+  c1.SetLogx(false);
+
+  for(int j=0;j<plots->yBins.size();j++)
+    {
+	for(int k=0;k<plots->zBins.size();k++)
+	{
+	  c1.cd(k+1);
+	  double max=0;
+	  double min=100000000;
+	  for(int i=0;i<recTypeEnd;i++)
+	    {
+	      if(max<plots->phiRHistos[i][k][j]->GetMaximum())
+		max=plots->phiRHistos[i][k][j]->GetMaximum();
+	      if(min>plots->phiRHistos[i][k][j]->GetMinimum())
+		min=plots->phiRHistos[i][k][j]->GetMinimum();
+	    }
+	  for(int i=0;i<recTypeEnd;i++)
+	    {
+	      plots->phiRHistos[i][k][j]->SetMaximum(1.2*max);
+	      plots->phiRHistos[i][k][j]->SetMinimum(1.2*min);
+	    }
+	  for(int i=0;i<recTypeEnd;i++)
+	    {
+	      cout <<"trying to plot i: "<< i <<" j : " << j << " k: "<< k <<endl;
+	      plots->phiRHistos[i][k][j]->SetMarkerColor(colors[i]);
+	      plots->phiRHistos[i][k][k]->SetMarkerStyle(markerStyles[i]);
+	      if(k==0)
+		plots->phiRHistos[i][k][j]->Draw("P");
+	      else
+		plots->phiRHistos[i][k][j]->Draw("SAME P");
+
+	      //save them individually
+	      /*	      c1.cd(0);
+	      plots->phiRHistos[i][k][j]->Draw();
+	      sprintf(buffer,"allPhiRHistos/phiR_%s_zBin%d_yBin%d.png",recTypeNames[i].c_str(),k,j);
+	      c1.SaveAs(buffer);
+	      cout <<"done " <<endl;*/
+	    }
+	}
+	sprintf(buffer,"phiRDists_yBin_%d_%d_%d.png",j,beamEnergyI,hadronBeamEnergyI);
+	c1.SaveAs(buffer);
+    }
+  c1.SetLogy();
+  c1.SetLogx();
+
+  c1.cd(0);
+
+  //  c1.SetLogz();
+  for(int i=0;i<recTypeEnd;i++)
+    {
+
+      plots->ptMeans[i]->Divide(plots->ptCounts[i]);
+      plots->ptDiffs[i]->Divide(plots->ptCounts[i]);
+
+
+      //account for the fact that we fill with z1, z2
+      plots->zMeans[i]->Divide(plots->zMeans[i],plots->ptCounts[i],1.0,2.0);
+      plots->zDiffs[i]->Divide(plots->zDiffs[i],plots->ptCounts[i],1.0,2.0);
+
+
+      plots->phiRMeans[i]->Divide(plots->ptCounts[i]);
+      plots->phiRDiffs[i]->Divide(plots->ptCounts[i]);
+
+      plots->zMeans[i]->SetMaximum(1.0);
+      plots->zDiffs[i]->SetMaximum(1.0);
+      plots->zMeans[i]->SetMinimum(0.0);
+      plots->zDiffs[i]->SetMinimum(0.0);
+      plots->phiRDiffs[i]->SetMaximum(1.0);
+      plots->phiRDiffs[i]->SetMinimum(0.0);
+
+      
+      sprintf(buffer,"ptMeans_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
+      plots->ptMeans[i]->Draw("colz");
+      drawYContour(0.01,beamEnergy,hadronBeamEnergy);
+      drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+      c1.SaveAs(buffer);
+      
+      sprintf(buffer,"ptDiffs_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
+      plots->ptDiffs[i]->Draw("colz");
+      drawYContour(0.01,beamEnergy,hadronBeamEnergy);
+      drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+      c1.SaveAs(buffer);
+
+      sprintf(buffer,"phiRMeans_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
+      plots->phiRMeans[i]->Draw("colz");
+      drawYContour(0.01,beamEnergy,hadronBeamEnergy);
+      drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+      c1.SaveAs(buffer);
+      sprintf(buffer,"phiRDiffs_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
+      plots->phiRDiffs[i]->Draw("colz");
+      drawYContour(0.01,beamEnergy,hadronBeamEnergy);
+      drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+      c1.SaveAs(buffer);
+
+
+      sprintf(buffer,"zMeans_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);
+
+  
+      plots->zMeans[i]->Draw("colz");
+      drawYContour(0.01,beamEnergy,hadronBeamEnergy);
+      drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+      c1.SaveAs(buffer);
+      sprintf(buffer,"zDiffs_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
+      plots->zDiffs[i]->Draw("colz");
+      drawYContour(0.01,beamEnergy,hadronBeamEnergy);
+      drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+      c1.SaveAs(buffer);
+    }
+  c1.SetLogz(false);  
+
+
   
   plots->Q2VsXSmearDA->Draw("colz");
   drawYContour(0.01,beamEnergy,hadronBeamEnergy);
   drawYContour(0.05,beamEnergy,hadronBeamEnergy);
-  
   sprintf(buffer,"Q2VsXSmearDA_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
   c1.SaveAs(buffer);
+  
   plots->Q2VsXSmearJB->Draw("colz");
   drawYContour(0.01,beamEnergy,hadronBeamEnergy);
   drawYContour(0.05,beamEnergy,hadronBeamEnergy);

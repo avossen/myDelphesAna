@@ -34,11 +34,12 @@ pair<double,double> getQz(double a, double b, double kappa, double y, double qT2
   
   if(c>0)
     {
+      //      cout <<"c: "<< c <<endl;
       return pair<double,double>(-pHalf+sqrt(c),-pHalf-sqrt(c));
     }
   else
     {
-      cout <<"qpart is 0 " <<endl;
+      //cout <<"qpart is 0, c: " << c <<endl;
       return pair<double,double>(0,0);
     }
 
@@ -100,7 +101,7 @@ struct HadronicVars
 void studyReconstruction(TClonesArray* branchParticles, TClonesArray* branchEFlowTrack, TClonesArray* branchEFlowPhoton, TClonesArray* branchEFlowNeutralHadron, TClonesArray* branchTrack)
 {
 
-  cout <<"study rec " <<endl;
+  //  cout <<"study rec " <<endl;
   for(int i=6;i<branchParticles->GetEntries();i++)
     {
       GenParticle* mParticle=((GenParticle*)branchParticles->At(i));
@@ -109,7 +110,7 @@ void studyReconstruction(TClonesArray* branchParticles, TClonesArray* branchEFlo
 
 
       //      cout <<"looking at generated particle: "<< mParticle->PID <<" energy: "<< mParticle->E<<" eta: "<< mParticle->Eta <<endl;
-      cout <<"eflow tracks " <<endl;
+      //  cout <<"eflow tracks " <<endl;
         for(int j=0;j<branchEFlowTrack->GetEntries();j++)
 	  {
 	    GenParticle* p=(GenParticle*)((Track*)branchEFlowTrack->At(j))->Particle.GetObject();
@@ -120,7 +121,7 @@ void studyReconstruction(TClonesArray* branchParticles, TClonesArray* branchEFlo
 		//		cout <<"found corresponding flow track with E: "<< t->P4().E()<<endl;
 	      }
 	  }
-	      cout <<"tracks " <<endl;
+	//	      cout <<"tracks " <<endl;
 	for(int j=0;j<branchTrack->GetEntries();j++)
 	  {
 	    GenParticle* p=(GenParticle*)((Track*)branchTrack->At(j))->Particle.GetObject();
@@ -131,7 +132,7 @@ void studyReconstruction(TClonesArray* branchParticles, TClonesArray* branchEFlo
 		//		cout <<"found corresponding  track with E: "<< t->P4().E()<<endl;
 	      }
 	  }
-      cout <<"photon " <<endl;
+	//      cout <<"photon " <<endl;
 	for(int j=0;j<branchEFlowPhoton->GetEntries();j++)
 	  {
 	    int pi=((Tower*)branchEFlowPhoton->At(j))->Particles.IndexOf(mParticle);
@@ -141,7 +142,7 @@ void studyReconstruction(TClonesArray* branchParticles, TClonesArray* branchEFlo
 		//		cout <<"found corresponding ecal tower with E: "<< t->E<<endl;
 	      }
 	  }
-	cout <<"neutral hadron? " << branchEFlowNeutralHadron <<endl;
+	//	cout <<"neutral hadron? " << branchEFlowNeutralHadron <<endl;
 	if(branchEFlowNeutralHadron!=0)
 	  {
 	    for(int j=0;j<branchEFlowNeutralHadron->GetEntries();j++)
@@ -235,29 +236,64 @@ struct boostVars{
 };
 
 
-  void getHadronPairs(vector<HadronPair>& pairsRec, vector<HadronPair>& pairsTrue,TClonesArray* branchTracks, boostVars recBoost, boostVars realBoost)
-  {    
+void getHadronPairs(vector<HadronPair>& pairsRec, vector<HadronPair>& pairsTrue,TClonesArray* branchTracks, boostVars recBoost, boostVars realBoost, double targetPz, bool useMatchedTruth, bool useGen, bool useNoAcc)
+  {
+
+
+    
+    //      for(int i=6;i<branchParticles->GetEntries();i++)
+    //    {
+    //      GenParticle* mParticle=((GenParticle*)branchParticles->At(i));
+    //      if(mParticle->Status!=1)
+    //	continue;
+
   for(int i=0;i<branchTracks->GetEntries();i++)
     {
-      Track* t=(Track*)branchTracks->At(i);
+      SortableObject* t=brachTracks->At(i);
+      TLorentzVector lv1;
 
-      if(fabs(t->Eta)>4.0 || (fabs(t->P)<0.01))
-	{
-	  continue;
+      if(useGen)
+	lv1=((GenParticle*)t)->P4();
+      else
+	lv1=((Track*)t)->P4();
+      
+      //      Track* t=(Track*)branchTracks->At(i);
+      if(useNoAcc)
+	{	
+	  if(fabs(lv1.Eta())>4.0 || (fabs(lv1.P())<0.01))
+	    {
+	      continue;
+	    }
 	}
-      TLorentzVector track_mom=t->P4();
-      GenParticle* tp = (GenParticle*) t->Particle.GetObject();
-      if(isnan(track_mom.E()))
+      //      TLorentzVector track_mom=t->P4();
+      GenParticle* tp;
+
+      //just the same
+      if(useGen)
+	tp=t;
+      else
+	tp= (GenParticle*) t->Particle.GetObject();
+      if(isnan(lv1.E()))
 	 continue;
+
+      TLorentzVector genP=tp->P4();
+      //      cout <<"looking at rec track: "<< printLVect(track_mom) <<endl;
+      //      cout <<"corresponding truth: "<< printLVect(genP)<<endl;
+      
       //pi+
-      if(!((GenParticle*)t->Particle.GetObject())->PID==211)
+      if(tp->PID!=211)
 	continue;
 
         for(int j=0;j<branchTracks->GetEntries();j++)
 	  {
 	    Track* t2=(Track*)branchTracks->At(j);
 	    TLorentzVector track_mom2=t2->P4();
-	    GenParticle* tp2 = (GenParticle*) t2->Particle.GetObject();
+	    GenParticle* tp2 = 0;
+	    if(useGen)
+	      tp2=t2;
+	    else
+	      tp2=(GenParticle*) t2->Particle.GetObject();
+	    
 	    if(fabs(t2->Eta)>4.0 || (fabs(t2->P)<0.01))
 	      {
 		continue;
@@ -265,14 +301,34 @@ struct boostVars{
 	    if(isnan(track_mom2.E()))
 	      continue;
 	    //pi-
-	    if(!((GenParticle*)t2->Particle.GetObject())->PID==211)
+	    if(tp2!=-211)
 	      continue;
 	    //should put minimum cuts here, maybe z1, z2> 0.1
-	    HadronPair pairRec(track_mom,track_mom2,recBoost.breitBoost,recBoost.W,recBoost.lv_q,recBoost.lv_l);
-	    if(pairRec.z1< 0.1 || pairRec.z2<0.1)
-	      continue;
+	    TLorentzVector real1=tp->P4();
+	    TLorentzVector real2=tp2->P4();
+	    
+	    HadronPair pairRec(track_mom,track_mom2,recBoost.breitBoost,recBoost.W,recBoost.lv_q,recBoost.lv_l,targetPz);
+	    HadronPair pairTruth(real1,real2,realBoost.breitBoost,realBoost.W,realBoost.lv_q,realBoost.lv_l,targetPz);
+
+	    //	    //	    cout <<" rec z1: "<< pairRec.z1 <<" truth : "<< pairTruth.z1 <<" z2: "<< pairRec.z2 <<" truth: "<< pairTruth.z2 <<endl;
+	    if(useMatchedTruth)
+	      {
+	      	    if(pairTruth.z1< 0.05 || pairTruth.z2<0.05)
+		      continue;
+	      }
+	    else
+	      {
+		if(pairRec.z1< 0.05 || pairRec.z2<0.05)
+		  {
+		    //		cout <<"z 1: "<< pairRec.z1 <<" z2: "<< pairRec.z2 <<endl;
+		    continue;
+		  }
+	      }
+	    //	    cout <<"combining " << printLVect(track_mom) <<" and " << printLVect(track_mom2) <<endl;
+	    //	    cout <<"combining true " << printLVect(real1) <<" and " << printLVect(real2) <<endl;
 	    pairsRec.push_back(pairRec);
-	    pairsTrue.push_back(HadronPair(tp->P4(),tp2->P4(),realBoost.breitBoost,realBoost.W,realBoost.lv_q,realBoost.lv_l));
+	    pairsTrue.push_back(pairTruth);
+	    //	    cout <<"ret " <<endl; 
 	  }
     }
       //      if(useTruth)
@@ -283,8 +339,58 @@ struct boostVars{
   }
 
     
+bool checkSanity(HadronPair& pair)
+{
+  bool sane=true;
+  if(isnan(pair.pT))
+    {
+      cout <<"nan pt" << endl;
+      sane=false;
+    }
+  if(isnan(pair.phi_R))
+    {
+      cout <<" nan phiR" <<endl;
+            sane=false;
 
+    }
+  if(isnan(pair.z1))
+    {
 
+      cout <<" nan z1" <<endl;
+            sane=false;
+
+    }
+  if(isnan(pair.z2))
+    {
+      cout <<" nan z2 "<<endl;
+                  sane=false;
+
+    }
+  if(sane)
+    return true;
+  else
+    return false;
+}
+
+int getBin(vector<float>& b1, float value)
+{
+  int coo1=-1;
+
+  for(unsigned int i=0;i<b1.size();i++)
+    {
+      if(value<=b1[i])
+	{
+	coo1=i;
+	break;
+	}
+    }
+  /*  if(coo1<0)
+    {
+        cout <<"wrong coo: val: " << value <<endl;
+	}*/
+  //  cout <<"value: " << value <<" coo: " << coo1 <<endl;
+  return coo1;
+}
 
 HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEFlowTrack, TClonesArray* branchEFlowPhoton, TClonesArray* branchEFlowNeutralHadron, TClonesArray* branchTrack, TClonesArray* branchParticles)
 {
