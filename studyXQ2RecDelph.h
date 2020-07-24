@@ -249,7 +249,7 @@ void getHadronPairs(vector<HadronPair>& pairsRec, vector<HadronPair>& pairsTrue,
 
   for(int i=0;i<branchTracks->GetEntries();i++)
     {
-      SortableObject* t=brachTracks->At(i);
+     TObject* t=branchTracks->At(i);
       TLorentzVector lv1;
 
       if(useGen)
@@ -258,7 +258,7 @@ void getHadronPairs(vector<HadronPair>& pairsRec, vector<HadronPair>& pairsTrue,
 	lv1=((Track*)t)->P4();
       
       //      Track* t=(Track*)branchTracks->At(i);
-      if(useNoAcc)
+      if(!useNoAcc)
 	{	
 	  if(fabs(lv1.Eta())>4.0 || (fabs(lv1.P())<0.01))
 	    {
@@ -270,13 +270,13 @@ void getHadronPairs(vector<HadronPair>& pairsRec, vector<HadronPair>& pairsTrue,
 
       //just the same
       if(useGen)
-	tp=t;
+	tp=(GenParticle*)t;
       else
-	tp= (GenParticle*) t->Particle.GetObject();
+	tp= (GenParticle*) ((Track*)t)->Particle.GetObject();
       if(isnan(lv1.E()))
 	 continue;
 
-      TLorentzVector genP=tp->P4();
+      //      TLorentzVector genP=tp->P4();
       //      cout <<"looking at rec track: "<< printLVect(track_mom) <<endl;
       //      cout <<"corresponding truth: "<< printLVect(genP)<<endl;
       
@@ -286,28 +286,39 @@ void getHadronPairs(vector<HadronPair>& pairsRec, vector<HadronPair>& pairsTrue,
 
         for(int j=0;j<branchTracks->GetEntries();j++)
 	  {
-	    Track* t2=(Track*)branchTracks->At(j);
-	    TLorentzVector track_mom2=t2->P4();
+	    TObject* t2=branchTracks->At(j);
+	    TLorentzVector lv2;
+	    
+	    if(useGen)
+	      lv2=((GenParticle*)t2)->P4();
+	    else
+	      lv2=((Track*)t2)->P4();
+	    
+		  //		  Track* t2=(Track*)branchTracks->At(j);
+		  //	    TLorentzVector track_mom2=t2->P4();
 	    GenParticle* tp2 = 0;
 	    if(useGen)
-	      tp2=t2;
+	      tp2=(GenParticle*)t2;
 	    else
-	      tp2=(GenParticle*) t2->Particle.GetObject();
-	    
-	    if(fabs(t2->Eta)>4.0 || (fabs(t2->P)<0.01))
+	      tp2=(GenParticle*)((Track*) t2)->Particle.GetObject();
+
+	    if(!useNoAcc)
 	      {
-		continue;
+		if(fabs(lv2.Eta())>4.0 || (fabs(lv2.P())<0.01))
+		  {
+		    continue;
+		  }
 	      }
-	    if(isnan(track_mom2.E()))
+	    if(isnan(lv2.E()))
 	      continue;
 	    //pi-
-	    if(tp2!=-211)
+	    if(tp2->PID!=-211)
 	      continue;
 	    //should put minimum cuts here, maybe z1, z2> 0.1
 	    TLorentzVector real1=tp->P4();
 	    TLorentzVector real2=tp2->P4();
 	    
-	    HadronPair pairRec(track_mom,track_mom2,recBoost.breitBoost,recBoost.W,recBoost.lv_q,recBoost.lv_l,targetPz);
+	    HadronPair pairRec(lv1,lv2,recBoost.breitBoost,recBoost.W,recBoost.lv_q,recBoost.lv_l,targetPz);
 	    HadronPair pairTruth(real1,real2,realBoost.breitBoost,realBoost.W,realBoost.lv_q,realBoost.lv_l,targetPz);
 
 	    //	    //	    cout <<" rec z1: "<< pairRec.z1 <<" truth : "<< pairTruth.z1 <<" z2: "<< pairRec.z2 <<" truth: "<< pairTruth.z2 <<endl;
