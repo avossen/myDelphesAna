@@ -355,25 +355,25 @@ bool checkSanity(HadronPair& pair)
   bool sane=true;
   if(isnan(pair.pT))
     {
-      cout <<"nan pt" << endl;
+      //      cout <<"nan pt" << endl;
       sane=false;
     }
   if(isnan(pair.phi_R))
     {
-      cout <<" nan phiR" <<endl;
+      //      cout <<" nan phiR" <<endl;
             sane=false;
 
     }
   if(isnan(pair.z1))
     {
 
-      cout <<" nan z1" <<endl;
+      //      cout <<" nan z1" <<endl;
             sane=false;
 
     }
   if(isnan(pair.z2))
     {
-      cout <<" nan z2 "<<endl;
+      //      cout <<" nan z2 "<<endl;
                   sane=false;
 
     }

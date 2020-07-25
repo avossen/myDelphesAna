@@ -29,7 +29,8 @@ using namespace std;
 
 
 enum RecType{elec, hadronic, da, mixed, mostlyLepton, truth,gen, genNoAcc,recTypeEnd};
-string recTypeNames[]={"elec","hadronic","da","mixed","mostlyLepton","truth","generatedWAcc","generatedWOAcc"};
+//  int colors[]={kRed,kBlue,kGreen,kBlack,kCyan,kMagenta,kOrange,kYellow};
+string recTypeNames[]={"elec","hadronic","da","mixed","mostlyLepton","trueBoost","generatedWAcc","generatedWOAcc"};
 class ExRootTreeReader;
 class ExRootResult;
 const int corrBinsX=20;
@@ -340,7 +341,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
       if(entry/(double)allEntries>0.1)
 	{
-	  break;
+	  //	  break;
 	}
       treeReader->ReadEntry(entry);
 
@@ -696,14 +697,17 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  switch(i)
 	    {
 	    case truth:
+	      //	      cout <<"truth recboost: "<< printLVect(recBoost.lv_q) <<" realBoost: "<< printLVect(realBoost.lv_q) <<endl;
+	      //	      cout <<"rec W: "<< recBoost.W <<" real: "<< realBoost.W <<endl;
+	      //	      cout <<"rec bosot : "<< printVect(recBoost.breitBoost) <<" real: "<< printVect(realBoost.breitBoost) <<endl;
 	      getHadronPairs(pairsRec[i],pairsTrue[i],branchEFlowTrack,recBoost,realBoost,Pz,true,false,false);
 	      break;
 	    case gen:
-	      getHadronPairs(pairsRec[i],pairsTrue[i],branchEFlowTrack,recBoost,realBoost,Pz,true,true,false);
+	      getHadronPairs(pairsRec[i],pairsTrue[i],branchParticle,recBoost,realBoost,Pz,true,true,false);
 	      break;
 
 	    case genNoAcc:
-	      getHadronPairs(pairsRec[i],pairsTrue[i],branchEFlowTrack,recBoost,realBoost,Pz,true,true,true);
+	      getHadronPairs(pairsRec[i],pairsTrue[i],branchParticle,recBoost,realBoost,Pz,true,true,true);
 	      break;
 	    default:
 	    getHadronPairs(pairsRec[i],pairsTrue[i],branchEFlowTrack,recBoost,realBoost,Pz,false,false,false);
@@ -736,8 +740,11 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
 
 	      if(pairsRec[i][j].phi_R < 0 ||  pairsRec[i][j].phi_R> 2*TMath::Pi())
+		{
 		//		cout <<" phi not in range " <<endl;
-	      cout <<"filling with index " << i <<endl;
+		}
+	      //		cout <<"filling with index " << i <<endl;
+		
 	      if(i==truth)
 		{
 		  plots->phiRHistos[i][zBin][yBin]->Fill(pairsTrue[i][j].phi_R);
@@ -759,7 +766,12 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	      plots->zDiffs[i]->SetBinContent(xBin,q2Bin,plots->zDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].z1-pairsTrue[i][j].z1)/fabs(pairsTrue[i][j].z1));
 	      plots->zDiffs[i]->SetBinContent(xBin,q2Bin,plots->zDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].z2-pairsTrue[i][j].z2)/fabs(pairsTrue[i][j].z2));
 	      plots->phiRMeans[i]->SetBinContent(xBin,q2Bin,plots->phiRMeans[i]->GetBinContent(xBin,q2Bin)+pairsTrue[i][j].phi_R);
-	      plots->phiRDiffs[i]->SetBinContent(xBin,q2Bin,plots->phiRDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].phi_R-pairsTrue[i][j].phi_R)/fabs(pairsTrue[i][j].phi_R));
+	      //normalizing phiR doesn't make sense, since we get a lot of larg numbers then for small angles...
+	      if(i==truth)
+		{
+		  //		  cout <<" rec phir: "<< pairsRec[i][j].phi_R <<" real: "<< pairsTrue[i][j].phi_R <<endl;
+		}
+	      plots->phiRDiffs[i]->SetBinContent(xBin,q2Bin,plots->phiRDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].phi_R-pairsTrue[i][j].phi_R));
 	    }
 	  //	  cout <<" done looking at rec pairs.. " << endl;
 	}
@@ -858,8 +870,8 @@ int main(int argc, char** argv)
 {
 
   
-  int colors[]={kRed,kBlue,kGreen,kBlack,kCyan,kMagenta,kRed,kBlue};
-  int markerStyles[]={20,21,22,23,24,25,26,27};
+  int colors[]={kRed,kBlue,kGreen,kBlack,kCyan,kMagenta,kOrange,kYellow};
+  int markerStyles[]={20,21,22,23,43,33,34,47};
 
   char buffer[200];
   gStyle->SetOptStat(0);
@@ -957,7 +969,9 @@ int main(int argc, char** argv)
   if(d< sqrt(plots->zBins.size()))
     d++;
 
+  //  TCanvas c2;
   //add one for legend
+  c1.Clear();
   c1.Divide(d+1,d);
 
 
@@ -987,8 +1001,9 @@ int main(int argc, char** argv)
 	    {
 	      cout <<"trying to plot i: "<< i <<" j : " << j << " k: "<< k <<endl;
 	      plots->phiRHistos[i][k][j]->SetMarkerColor(colors[i]);
-	      plots->phiRHistos[i][k][k]->SetMarkerStyle(markerStyles[i]);
-	      if(k==0)
+	      plots->phiRHistos[i][k][j]->SetLineColor(colors[i]);
+	      plots->phiRHistos[i][k][j]->SetMarkerStyle(markerStyles[i]);
+	      if(i==0)
 		plots->phiRHistos[i][k][j]->Draw("P");
 	      else
 		plots->phiRHistos[i][k][j]->Draw("SAME P");
@@ -1005,13 +1020,24 @@ int main(int argc, char** argv)
 
 	for(int i=0;i<recTypeEnd;i++)
 	  {
-	    legend->AddEntry(plots->phiRHistos[i][0][j]->GetName(),recTypeNames[i].c_str(),"lep");
+	    legend->AddEntry(plots->phiRHistos[i][0][j],recTypeNames[i].c_str(),"p");
+
+	    TH1* histo=(TH1*)gDirectory->Get(plots->phiRHistos[i][0][j]->GetName());
+	    cout <<" pull name for legend: " << plots->phiRHistos[i][0][j]->GetName() <<endl;
+	    cout <<"color for marker: "<< plots->phiRHistos[i][0][j]->GetMarkerColor()<<endl;;
+	    cout <<" or " << histo->GetMarkerColor()<<endl;
+	    
+	    cout <<"style for marker: "<< plots->phiRHistos[i][0][j]->GetMarkerStyle()<<endl;
+	    	    cout <<" or " << histo->GetMarkerStyle()<<endl;
 	  }
 	c1.cd(plots->zBins.size()+1);
 	legend->Draw();
-
+	legend->Draw();
 	sprintf(buffer,"phiRDists_yBin_%d_%d_%d.png",j,beamEnergyI,hadronBeamEnergyI);
 	c1.SaveAs(buffer);
+	sprintf(buffer,"phiRDists_yBin_%d_%d_%d.root",j,beamEnergyI,hadronBeamEnergyI);
+	c1.SaveAs(buffer);
+
     }
   c1.SetLogy();
   c1.SetLogx();
