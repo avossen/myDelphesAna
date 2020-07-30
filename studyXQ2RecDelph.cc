@@ -9,6 +9,8 @@
 #include <fstream>
 #include <cstdlib>
 #include <set>
+using namespace std;
+#include "AUTweight.h"
 //#include "studyPIDs.h"
 
 #include "TGraph.h"
@@ -25,7 +27,7 @@
 #include "external/ExRootAnalysis/ExRootResult.h"
 
 #include "studyXQ2RecDelph.h"
-using namespace std;
+
 
 
 enum RecType{elec, hadronic, da, mixed, mostlyLepton, truth,gen, genNoAcc,recTypeEnd};
@@ -35,8 +37,16 @@ class ExRootTreeReader;
 class ExRootResult;
 const int corrBinsX=20;
 const int corrBinsQ2=10;
+
+
+
+
 struct TestPlots
 {
+  
+  TTree* diHadTrees[8];
+  diHadTreeFields treeFields[8];
+  
   TH2* angCorr;
   TH1* angRes;
   TH1* angTrue;
@@ -52,7 +62,6 @@ struct TestPlots
   TH2* Q2VsXSmearNorm;
   TH2* corrConventionalQ2;
   TH2* corrConventionalX;
-
 
   TH2* Q2CorrElec;
   TH2* Q2CorrJB;
@@ -90,8 +99,14 @@ struct TestPlots
   vector<float> yBins;
 };
 
+
+AUTweight*  m_weights;
+TFile* myFile;
+
+
 void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int  hadronBeamEnergyI)
 {
+  myFile=new TFile("studyRec.root","recreate");
   TLegend *legend;
   TPaveText *comment;
   char buffer[300];
@@ -110,6 +125,15 @@ void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int 
   plots->Q2VsXSmearMixed=result->AddHist2D("Q2VsXSmearMixed",buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
   plots->Q2VsXSmearNorm=result->AddHist2D("Q2VsXSmearNorm",buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
 
+
+
+  for(int i=0;i<recTypeEnd;i++)
+    {
+      sprintf(buffer,"tree_%s",recTypeNames[i].c_str());
+      plots->diHadTrees[i]=new TTree(buffer,buffer);
+      doBranching(plots->diHadTrees[i],plots->treeFields[i]);
+    }
+  
   for(int i=0;i<recTypeEnd;i++)
     {
       plots->phiRHistos[i]=new TH1**[plots->zBins.size()];
@@ -341,7 +365,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
       if(entry/(double)allEntries>0.1)
 	{
-	  //	  break;
+	  //	  	  break;
 	}
       treeReader->ReadEntry(entry);
 
@@ -381,7 +405,10 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       double  x = Q2 / (2. * pProton.Dot(pPhoton));
       double  y = (pProton.Dot(pPhoton)) / (pProton.Dot(pleptonIn));
       //       cout <<"true q2: " << Q2 <<" x: " << x <<" y: " << y <<endl;
-    
+
+
+
+      
       TLorentzVector e;
       Electron* electron;
       if(branchElectron->GetEntries()>0)
@@ -512,6 +539,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
       double usedQ2[8];
       double usedy[8];
+      double usedx[8];
       for(int i=0;i<recTypeEnd;i++)
 	{
 	  switch(i)
@@ -520,39 +548,47 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	    case elec:
 	      usedQ2[i]=kinSmeared.Q2;
 	      usedy[i]=kinSmeared.y;
+	      usedx[i]=kinSmeared.x;
 	      break;
 
 	    case hadronic:
 	      usedQ2[i]=kinJBSmeared.Q2;
 	      usedy[i]=kinJBSmeared.y;
+	      usedx[i]=kinJBSmeared.x;
 	      break;
 
 	    case da:
 	      usedQ2[i]=kinDASmeared.Q2;
 	      usedy[i]=kinDASmeared.y;
+	      usedx[i]=kinDASmeared.x;
 	      break;
 
 	    case mixed:
 	      usedQ2[i]=kinSmeared.Q2;
 	      usedy[i]=kinJBSmeared.y;
+	      usedx[i]=mixedXSmeared;
 	      break;
 
 	    case mostlyLepton:
 	      usedQ2[i]=kinSmeared.Q2;
 	      usedy[i]=kinSmeared.y;
+	      usedx[i]=kinSmeared.x;
 	      break;
 
 	    case truth:
 	      usedQ2[i]=Q2;
 	      usedy[i]=y;
+	      usedx[i]=x;
 	      break;
 	    case gen:
 	      usedQ2[i]=Q2;
 	      usedy[i]=y;
+	      usedx[i]=x;
 	      break;
 	    case genNoAcc:
 	      usedQ2[i]=Q2;
 	      usedy[i]=y;
+	      usedx[i]=x;
 	      break;
 	      
 	    default: 
@@ -685,8 +721,13 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       q2Bin = yaxis->FindBin(kinOrig.Q2);
       //      cout <<"using xbin: "<< xBin <<" q2Bin: "<< q2Bin << " for x: "<< kinOrig.x <<" q2: " << kinOrig.Q2 <<endl;
       //      cout <<"done " <<endl;
-
-
+      int polarization=1.0;
+      if(rand() % 100 <50)
+	{
+	  polarization=-1.0;
+	}
+      TVector3 spinVect;
+      spinVect.SetXYZ(0,polarization,0);
       
       for(int i=0;i<recTypeEnd;i++)
 	{
@@ -705,12 +746,11 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	    case gen:
 	      getHadronPairs(pairsRec[i],pairsTrue[i],branchParticle,recBoost,realBoost,Pz,true,true,false);
 	      break;
-
 	    case genNoAcc:
 	      getHadronPairs(pairsRec[i],pairsTrue[i],branchParticle,recBoost,realBoost,Pz,true,true,true);
 	      break;
 	    default:
-	    getHadronPairs(pairsRec[i],pairsTrue[i],branchEFlowTrack,recBoost,realBoost,Pz,false,false,false);
+	      getHadronPairs(pairsRec[i],pairsTrue[i],branchEFlowTrack,recBoost,realBoost,Pz,false,false,false);
 	    }
       ////-----
 	  ///	  	  cout <<"looking at rec pairs " <<endl;
@@ -719,7 +759,6 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  //	  cout <<" num pairs " << pairsRec[i].size() <<endl;
 	  for(int j=0;j<pairsRec[i].size();j++)
 	    {
-	      
 	      if(!checkSanity(pairsTrue[i][j]))
 		{
 		  continue;
@@ -728,12 +767,38 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 		{
 		  continue;
 		}
+	      double meanWeight=0;
+	      double unc=0;
+
+	      //	      cout <<"getting weight for Q2: "<< Q2<< " M: "<< pairsTrue[i][j].M <<" x: " << x <<" z: "<< pairsTrue[i][j].z <<endl;
+	      m_weights->getWeight(sqrt(Q2),pairsTrue[i][j].M,x,pairsTrue[i][j].z,meanWeight,unc);
+	      //	      cout <<"done: " << meanWeight<< endl;
+	      if(meanWeight==0)
+		{
+		  //		  cout <<"weight zero for Q2: "<< Q2<< " M: "<< pairsTrue[i][j].M <<" x: " << x <<" z: "<< pairsTrue[i][j].z <<endl;
+		}
+	      //	      cout <<" unc: "<< unc <<endl;
+	      pairsRec[i][j].weight=meanWeight;
+	      pairsRec[i][j].weightUncert= unc;
+
+	      plots->treeFields[i].polarization=polarization;
+	      plots->treeFields[i].Q2=usedQ2[i];
+	      plots->treeFields[i].x=usedx[i];
+	      plots->treeFields[i].y=usedy[i];
+	      plots->treeFields[i].W=W[i];
+	      plots->treeFields[i].Mx=0;
+	      plots->treeFields[i].evtNr=entry;
+
+	      //	      cout<<"trying to fill tree" <<endl;
+	      fillTree(plots->diHadTrees[i],plots->treeFields[i],pairsRec[i],q[i],q_bv[i],pleptonIn,spinVect,meanWeight, unc);
+	      //	      cout <<"done " <<endl;
+
 	      
 	      int zBin=getBin(plots->zBins,pairsTrue[i][j].z);
 	      int yBin=getBin(plots->yBins,y);
 	      if(zBin < 0 || yBin < 0)
 		{
-		  	  cout <<"wrong z, y bin " <<endl;
+		  cout <<"wrong z, y bin " <<endl;
 		  continue;
 		}
 	      //	      cout <<"zBin: "<< zBin << " yBin: "<< yBin <<" z: "<< pairsTrue[i][j].z<<" y: "<< y<<endl;
@@ -866,9 +931,12 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
 
 
+
+
 int main(int argc, char** argv)
 {
-
+  srand(time(NULL));
+  m_weights=new AUTweight();
   
   int colors[]={kRed,kBlue,kGreen,kBlack,kCyan,kMagenta,kOrange,kYellow};
   int markerStyles[]={20,21,22,23,43,33,34,47};
@@ -978,6 +1046,9 @@ int main(int argc, char** argv)
   c1.SetLogy(false);
   c1.SetLogx(false);
 
+  myFile->Write();
+  myFile->Close();
+  
   for(int j=0;j<plots->yBins.size();j++)
     {
 	for(int k=0;k<plots->zBins.size();k++)

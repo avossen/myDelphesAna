@@ -2,7 +2,70 @@
 #include "classes/DelphesClasses.h"
 
 using namespace std;
+const int maxFields=200;
 
+
+class Tools {
+  public:
+  constexpr     static const Double_t UNDEF = -10000;
+    // angle between two planes, spanned by vectors
+    static Float_t PlaneAngle(
+      TVector3 vA, TVector3 vB, TVector3 vC, TVector3 vD
+    ) {
+      TVector3 crossAB = vA.Cross(vB); // AxB
+      TVector3 crossCD = vC.Cross(vD); // CxD
+      Float_t sgn = crossAB.Dot(vD); // (AxB).D
+      if(fabs(sgn)<0.00001) return UNDEF;
+      sgn /= fabs(sgn); // sign of (AxB).D
+      Float_t numer = crossAB.Dot(crossCD); // (AxB).(CxD)
+      Float_t denom = crossAB.Mag() * crossCD.Mag(); // |AxB|*|CxD|
+      if(fabs(denom)<0.00001) return UNDEF;
+      return sgn * TMath::ACos(numer/denom);
+    };
+    // vector projection:
+    // returns vA projected onto vB
+    static TVector3 Project(TVector3 vA, TVector3 vB) {
+      if(fabs(vB.Dot(vB))<0.0001) {
+        //fprintf(stderr,"WARNING: Tools::Project to null vector\n");
+        return TVector3(0,0,0);
+      };
+      return vB * ( vA.Dot(vB) / ( vB.Dot(vB) ) );
+    };
+    // vector rejection: 
+    // returns vC projected onto plane transverse to vD
+    static TVector3 Reject(TVector3 vC, TVector3 vD) {
+      if(fabs(vD.Dot(vD))<0.0001) {
+        //fprintf(stderr,"WARNING: Tools::Reject to null vector\n");
+        return TVector3(0,0,0);
+      };
+      return vC - Project(vC,vD);
+    };
+};
+
+struct diHadTreeFields{
+  float Q2;
+  float x;
+  float y;
+  float W;
+  float Mx;
+  int evtNr;
+  int polarization;
+
+  int numHadronPairs;
+  float phiR[maxFields];
+  float phiH[maxFields];
+  float phiS[maxFields];
+  float z[maxFields];
+  float M[maxFields];
+  float theta[maxFields];
+  float xF[maxFields];
+  float pT[maxFields];
+  float weight[maxFields];
+  float weightLowerLimit[maxFields];
+  float weightUpperLimit[maxFields];
+  int pairType[maxFields];
+  
+};
 
 float printLVect(TLorentzVector& v)
 {
@@ -23,6 +86,65 @@ struct Kins
   float W;
 };
 
+
+void fillTree(TTree* tree, diHadTreeFields& fields,vector<HadronPair>& pairs,const TLorentzVector& qLab,const TVector3& breitBoost,const TLorentzVector& leptonInLab,const TVector3& spinVect, float weight, float unc)
+{
+  //q=l-l'-->l'=l-q
+  TLorentzVector leptonOut=leptonInLab-qLab;
+
+  leptonOut.Boost(breitBoost);
+  TLorentzVector mQ=qLab;
+  mQ.Boost(breitBoost);
+
+  //spinBivec = Tools::Reject(spinBivec,pQ); // pedantic (no effect)
+  
+  float phiS = Tools::PlaneAngle(mQ.Vect(),leptonOut.Vect(),mQ.Vect(),spinVect);
+
+  //assume that event vars have been filled before
+  fields.numHadronPairs=pairs.size();
+  for(int i=0;i<pairs.size();i++)
+    {
+      fields.phiR[i]=pairs[i].phi_R;
+      fields.phiS[i]=phiS;
+      fields.phiH[i]=pairs[i].phi_h;
+      fields.z[i]=pairs[i].z;
+      fields.xF[i]=pairs[i].xF;
+      fields.xF[i]=pairs[i].xF;
+      fields.theta[i]=pairs[i].m_theta;
+      fields.M[i]=pairs[i].M;
+      fields.pairType[i]=32;
+      fields.weight[i]=1+weight*fields.polarization*sin(pairs[i].phi_R+phiS);
+      fields.weightUpperLimit[i]=1+(weight+unc)*fields.polarization*sin(pairs[i].phi_R+phiS);
+      fields.weightLowerLimit[i]=1+(weight-unc)*fields.polarization*sin(pairs[i].phi_R+phiS);
+    }
+  tree->Fill();
+}
+
+void doBranching(TTree* tree, diHadTreeFields& fields)
+{
+  tree->Branch("Q2",&(fields.Q2),"Q2/F");
+  tree->Branch("x",&(fields.x),"x/F");
+  tree->Branch("y",&(fields.y),"y/F");
+  tree->Branch("W",&(fields.W),"W/F");
+  tree->Branch("Mx",&(fields.Mx),"Mx/F");
+  tree->Branch("evtNr",&(fields.evtNr),"evtNr/I");
+  tree->Branch("polarization",&(fields.polarization),"polarization/I");
+  
+  tree->Branch("numHadronPairs",&(fields.numHadronPairs),"numHadronPairs/I");
+  tree->Branch("phiR",(fields.phiR),"phiR[numHadronPairs]/F");
+  tree->Branch("phiS",(fields.phiS),"phiS[numHadronPairs]/F");
+  tree->Branch("phiH",(fields.phiH),"phiH[numHadronPairs]/F");
+  tree->Branch("z",(fields.z),"z[numHadronPairs]/F");
+  tree->Branch("M",(fields.M),"M[numHadronPairs]/F");
+  tree->Branch("theta",(fields.theta),"theta[numHadronPairs]/F");
+  tree->Branch("xF",(fields.xF),"xF[numHadronPairs]/F");
+  tree->Branch("pT",(fields.pT),"pT[numHadronPairs]/F");
+  tree->Branch("weight",(fields.weight),"weight[numHadronPairs]/F");
+  tree->Branch("weightUpperLimit",(fields.weightUpperLimit),"weightUpperLimit[numHadronPairs]/F");
+  tree->Branch("weightLowerLimit",(fields.weightLowerLimit),"weightLowerLimit[numHadronPairs]/F");
+  tree->Branch("pairType",(fields.pairType),"pairType[numHadronPairs]/I");
+  
+}
 
 pair<double,double> getQz(double a, double b, double kappa, double y, double qT2, double Pz, double Pe,double Q2)
 {
@@ -67,6 +189,8 @@ float drawYContour(float yval,float beamEnergy, float hadronBeamEnergy)
   // clas12 y=1 line
 
 }
+
+
 
 static void BinLog(TAxis * axis)
     {

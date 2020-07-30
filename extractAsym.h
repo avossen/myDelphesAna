@@ -1,0 +1,59 @@
+#ifndef EXTRACT_ASYM_H_
+#define EXTRACT_ASYM_H_
+#include "TTree.h"
+
+
+void setBranchAddresses(TTree* mTree,diHadTreeFields& fields)
+{
+  mTree->SetBranchAddress("Q2",&fields.Q2);
+  mTree->SetBranchAddress("x",&fields.x);
+  mTree->SetBranchAddress("y",&fields.y);
+  mTree->SetBranchAddress("W",&fields.W);
+  mTree->SetBranchAddress("Mx",&fields.Mx);
+  mTree->SetBranchAddress("evtNr",&fields.evtNr);
+  mTree->SetBranchAddress("polarization",&fields.polarization);
+  mTree->SetBranchAddress("numHadronPairs",&fields.numHadronPairs);
+  mTree->SetBranchAddress("phiR",fields.phiR);
+  mTree->SetBranchAddress("phiS",fields.phiS);
+  mTree->SetBranchAddress("phiH",fields.phiH);
+  mTree->SetBranchAddress("z",fields.z);
+  mTree->SetBranchAddress("M",fields.M);
+  mTree->SetBranchAddress("theta",fields.theta);
+  mTree->SetBranchAddress("xF",fields.xF);
+  mTree->SetBranchAddress("pT",fields.pT);
+  mTree->SetBranchAddress("weight",fields.weight);
+  mTree->SetBranchAddress("weightUpperLimit",fields.weightUpperLimit);
+  mTree->SetBranchAddress("weightLowerLimit",fields.weightLowerLimit);
+  mTree->SetBranchAddress("pairType",fields.pairType);
+}
+
+
+
+int getBin(vector<float>& b1, float value)
+{
+  int coo1=-1;
+
+  for(unsigned int i=0;i<b1.size();i++)
+    {
+      if(value<=b1[i])
+	{
+	coo1=i;
+	break;
+	}
+    }
+  /*  if(coo1<0)
+    {
+        cout <<"wrong coo: val: " << value <<endl;
+	}*/
+  //  cout <<"value: " << value <<" coo: " << coo1 <<endl;
+  return coo1;
+}
+
+template<class T> T** allocateArray(int dim1, int dim2);
+template<class T> T*** allocateArray(int dim1, int dim2, int dim3);
+template<class T> T**** allocateArray(int dim1, int dim2, int dim3, int dim4);
+template<class T> T***** allocateArray(int dim1, int dim2, int dim3, int dim4, int dim5);
+template<class T> T****** allocateArray(int dim1, int dim2, int dim3, int dim4, int dim5,int dim6);
+template<class T> T******* allocateArray(int dim1, int dim2, int dim3, int dim4, int dim5,int dim6, int dim7);
+
+#endif
