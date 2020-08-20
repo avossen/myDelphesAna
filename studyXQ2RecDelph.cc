@@ -94,6 +94,7 @@ struct TestPlots
   TH2* phiRDiffs[8];
 
   TH1*** phiRHistos[8];
+  TH1*** pTHistos[8];
   
   vector<float> zBins;
   vector<float> yBins;
@@ -137,14 +138,20 @@ void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int 
   for(int i=0;i<recTypeEnd;i++)
     {
       plots->phiRHistos[i]=new TH1**[plots->zBins.size()];
+      plots->pTHistos[i]=new TH1**[plots->zBins.size()];
       for(int j=0;j<plots->zBins.size();j++)
 	{
 	  plots->phiRHistos[i][j]=new TH1*[plots->yBins.size()];
+	  plots->pTHistos[i][j]=new TH1*[plots->yBins.size()];
 	  for(int k=0;k<plots->yBins.size();k++)
 	    {
 	      sprintf(buffer,"phi_R_%s_zBin_%d_yBin_%d",recTypeNames[i].c_str(),j,k);
 	      plots->phiRHistos[i][j][k]=result->AddHist1D(buffer,buffer,"phi_R","counts",30,0,2*TMath::Pi());
+	      sprintf(buffer,"pT_%s_zBin_%d_yBin_%d",recTypeNames[i].c_str(),j,k);
+	      plots->pTHistos[i][j][k]=result->AddHist1D(buffer,buffer,"phi_R","counts",30,0,2*TMath::Pi());
+
 	    }
+	  
 	}
     }
   
@@ -335,8 +342,8 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
   cout <<"after use branch.." <<endl;
   Long64_t allEntries = treeReader->GetEntries();
 
-  GenParticle *particle;
-  Electron *electron;
+  GenParticle *recElectronParticle;
+  Electron *recElectron;
 
   Track *track;
   Tower *tower;
@@ -353,7 +360,6 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
   Long64_t entry;
 
   Int_t i, j, pdgCode;
-  //      cout <<"original e px: " << ePxOrig <<" py: " << ePyOrig<< " pz: "<< ePzOrig<<endl;
 
 
   for(entry=0;entry < allEntries;++entry)
@@ -363,9 +369,9 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  cout <<"looking at event " << entry <<" of " << allEntries <<" : " <<100*entry/allEntries <<" % " <<endl;
 	}
 
-      if(entry/(double)allEntries>0.1)
+      if(entry/(double)allEntries>0.05)
 	{
-	  //	  	  break;
+	  //break;
 	}
       treeReader->ReadEntry(entry);
 
@@ -405,16 +411,20 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       double  x = Q2 / (2. * pProton.Dot(pPhoton));
       double  y = (pProton.Dot(pPhoton)) / (pProton.Dot(pleptonIn));
       //       cout <<"true q2: " << Q2 <<" x: " << x <<" y: " << y <<endl;
+      //might as well make it explicit
+      double trueY=y;
 
 
+      if(y<0.05)
+	continue;
 
       
-      TLorentzVector e;
-      Electron* electron;
+      TLorentzVector pRecElectron;
+      Electron* recElectron;
       if(branchElectron->GetEntries()>0)
  	{
- 	  electron = ((Electron*)branchElectron->At(0));
- 	  e =electron->P4();
+ 	  recElectron = ((Electron*)branchElectron->At(0));
+ 	  pRecElectron =recElectron->P4();
  	}
       else
  	{
@@ -424,15 +434,15 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       studyReconstruction(branchParticle,branchEFlowTrack,branchEFlowPhoton,branchEFlowNeutralHadron,branchTrack);
 
       //       cout <<"rec electron E: "<< e.E()<<endl;
-      //       cout << "true electron 1: "<< pleptonOut.E() <<endl;
-      particle = (GenParticle*) electron->Particle.GetObject();
-      //       cout <<"truth from rec electron: "<< particle->E<<endl;
+      //             cout << "true electron 1: "<< pleptonOut.E() <<endl;
+      recElectronParticle = (GenParticle*) recElectron->Particle.GetObject();
+      //           cout <<"truth from rec electron: "<< particle->E<<endl;
 
        
       //      Kins kinOrig=getKinsFromScatElectron(pleptonIn.E(),pProton.E(),pleptonOut.Px(),pleptonOut.Py(),pleptonOut.Pz(),pleptonOut.E());
-      Kins kinOrig=getKinsFromScatElectron(beamEnergy,hadronBeamEnergy,particle->Px,particle->Py,particle->Pz,particle->E);
+      Kins kinOrig=getKinsFromScatElectron(beamEnergy,hadronBeamEnergy,recElectronParticle->Px,recElectronParticle->Py,recElectronParticle->Pz,recElectronParticle->E);
 
-      Kins kinSmeared=getKinsFromScatElectron(beamEnergy,hadronBeamEnergy,e.Px(),e.Py(),e.Pz(),e.E());
+      Kins kinSmeared=getKinsFromScatElectron(beamEnergy,hadronBeamEnergy,pRecElectron.Px(),pRecElectron.Py(),pRecElectron.Pz(),pRecElectron.E());
       HadronicVars hvOrig=getOriginalHadronicVars(branchParticle);
       HadronicVars hvSmeared=getHadronicVars(branchElectron, branchEFlowTrack, branchEFlowPhoton,branchEFlowNeutralHadron,branchTrack,branchParticle);
       //
@@ -459,11 +469,15 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       
       Kins kinJBSmeared=getKinsJB(hvSmeared,beamEnergy,hadronBeamEnergy,sqrtS*sqrtS);
       //Kins kinDASmeared=getKinsDA(e.Px(),e.Py(),e.Pz() ,e.E(),beamEnergy,hvSmeared.theta, sqrtS*sqrtS);
-      Kins kinDASmeared=getKinsDA(particle->Px,particle->Py,particle->Pz ,particle->E,beamEnergy,hvSmeared.theta, sqrtS*sqrtS);
+      //      Kins kinDASmeared=getKinsDA(recElectronParticle->Px,recElectronParticle->Py,recElectronParticle->Pz ,recElectronParticle->E,beamEnergy,hvSmeared.theta, sqrtS*sqrtS);
+
+
+      Kins kinDASmeared=getKinsDA(pRecElectron.Px(),pRecElectron.Py(),pRecElectron.Pz() ,pRecElectron.E(),beamEnergy,hvSmeared.theta, sqrtS*sqrtS);
+      
       //already have the correct hvSmeared, so just need to set the electron kinematics
       if(useTruth)
 	{
-	  kinDASmeared=getKinsDA(particle->Px,particle->Py,particle->Pz ,particle->E,beamEnergy,hvSmeared.theta, sqrtS*sqrtS);
+	  kinDASmeared=getKinsDA(recElectronParticle->Px,recElectronParticle->Py,recElectronParticle->Pz ,recElectronParticle->E,beamEnergy,hvSmeared.theta, sqrtS*sqrtS);
 	}
 
       //      cout <<"jb y: "<< kinJBSmeared.y << " sqrtS: "<< sqrtS <<endl;
@@ -476,7 +490,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
 
       TLorentzVector qOrig;
-      qOrig.SetPxPyPzE(particle->Px,particle->Py,particle->Pz,particle->E);
+      qOrig.SetPxPyPzE(recElectronParticle->Px,recElectronParticle->Py,recElectronParticle->Pz,recElectronParticle->E);
       /////////
       TLorentzVector qH;
 
@@ -529,7 +543,6 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       ///
       double qTx=pleptonIn.Px()+hPx;
       double qTy=pleptonIn.Py()+hPy;
-      
 
       double b=pProton.Px()*qTx+pProton.Py()*qTy;
       double qT2=qTx*qTx+qTy*qTy;
@@ -644,42 +657,15 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	}
 
       
-      
-      //      pair<float,float> resJB=getQz(a,b,kappa,kinJBSmeared.y,qT2,Pz,Pe,kinJBSmeared.Q2);
-      //      pair<float,float> resDA=getQz(a,b,kappa,kinDASmeared.y,qT2,Pz,Pe,kinDASmeared.Q2);
-      //      pair<float,float> resMixed=getQz(a,b,kappa,kinJBSmeared.y,qT2,Pz,Pe,kinSmeared.Q2);mix
-      //      pair<float,float> resMostlyLepton=getQz(a,b,kappa,kinJBSmeared.y,qT2,Pz,Pe,kinJBSmeared.Q2);
-
-
-
-      
-      //      double qz=res.second;
-      //      double qE=getQe(a,b,y,qT2,Pz,qz,Pe);
-
-
-
-      //----> use the other qs here
-
-
-
-      
-      //      cout <<"qh: "<< printLVect(qH) <<endl;
-      //      cout <<"ql: "<< printLVect(qL) <<endl;
-      //      cout <<"qlh: "<< printLVect(qLH) <<endl;
-      //      cout <<"qOrig: "<< printLVect(qOrig) <<endl;
-      
-      //calculate the boost to the p-q system
-
-      
-      //      TLorentzVector qH_P=qH+pProton;
-      //      TLorentzVector qL_P=qL+pProton;
-      //      TLorentzVector qLH_P=qLH+pProton;
       TLorentzVector qOrig_P=qOrig+pProton;
 
-      //    float WH=qH_P.M();
-      //      float WL=qL_P.M();
-      //      float WLH=qLH_P.M();
       float WOrig=qOrig_P.M();
+      if(WOrig < 0)
+	{
+	  cout <<"worig < 0, qOrig: " << printLVect(qOrig) <<", pleptOut " << particle->Px <<", " <<particle->Py <<" " << particle->Pz <<" " << particle->E <<endl;
+	  cout <<"plept out: "<< printLVect(pleptonOut)<<endl;
+	}
+      
       
       //      TVector3 qH_bv=qH_P.BoostVector();
       //      TVector3 qL_bv=qL_P.BoostVector();
@@ -721,13 +707,6 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       q2Bin = yaxis->FindBin(kinOrig.Q2);
       //      cout <<"using xbin: "<< xBin <<" q2Bin: "<< q2Bin << " for x: "<< kinOrig.x <<" q2: " << kinOrig.Q2 <<endl;
       //      cout <<"done " <<endl;
-      int polarization=1.0;
-      if(rand() % 100 <50)
-	{
-	  polarization=-1.0;
-	}
-      TVector3 spinVect;
-      spinVect.SetXYZ(0,polarization,0);
       
       for(int i=0;i<recTypeEnd;i++)
 	{
@@ -761,23 +740,43 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	    {
 	      if(!checkSanity(pairsTrue[i][j]))
 		{
+		  	  cout <<"true pair insane i:" <<i<<endl;
 		  continue;
 		}
 	      if( !checkSanity(pairsRec[i][j]))
 		{
+		  		  cout <<"rec pair insane " <<endl;
 		  continue;
 		}
 	      double meanWeight=0;
 	      double unc=0;
-
 	      //	      cout <<"getting weight for Q2: "<< Q2<< " M: "<< pairsTrue[i][j].M <<" x: " << x <<" z: "<< pairsTrue[i][j].z <<endl;
 	      m_weights->getWeight(sqrt(Q2),pairsTrue[i][j].M,x,pairsTrue[i][j].z,meanWeight,unc);
 	      //	      cout <<"done: " << meanWeight<< endl;
+
+	      ///--->set to zero for testing
+	      //	      meanWeight=0.1;
+	      //	      unc=0.05;
+	      //-->
+	      	      meanWeight=0.0;
+		      unc=0.0;
+
+	      
 	      if(meanWeight==0)
 		{
 		  //		  cout <<"weight zero for Q2: "<< Q2<< " M: "<< pairsTrue[i][j].M <<" x: " << x <<" z: "<< pairsTrue[i][j].z <<endl;
 		}
 	      //	      cout <<" unc: "<< unc <<endl;
+
+      int polarization=1.0;
+      if(rand() % 100 >=50)
+	{
+	  polarization=-1.0;
+	}
+      TVector3 spinVect;
+      spinVect.SetXYZ(0,polarization,0);
+      //for asymmetry calculation, always have spin vector point up
+	      
 	      pairsRec[i][j].weight=meanWeight;
 	      pairsRec[i][j].weightUncert= unc;
 
@@ -790,9 +789,8 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	      plots->treeFields[i].evtNr=entry;
 
 	      //	      cout<<"trying to fill tree" <<endl;
-	      fillTree(plots->diHadTrees[i],plots->treeFields[i],pairsRec[i],q[i],q_bv[i],pleptonIn,spinVect,meanWeight, unc);
+	      fillTree(plots->diHadTrees[i],plots->treeFields[i],pairsRec[i],q[i],q_bv[i],pleptonIn,spinVect,meanWeight, unc,pairsTrue[i],qOrig,orig_bv);
 	      //	      cout <<"done " <<endl;
-
 	      
 	      int zBin=getBin(plots->zBins,pairsTrue[i][j].z);
 	      int yBin=getBin(plots->yBins,y);
@@ -810,13 +808,15 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 		}
 	      //		cout <<"filling with index " << i <<endl;
 		
-	      if(i==truth)
+	      if(i==true)
 		{
 		  plots->phiRHistos[i][zBin][yBin]->Fill(pairsTrue[i][j].phi_R);
+		  plots->pTHistos[i][zBin][yBin]->Fill(pairsTrue[i][j].pT);
 		}
 	      else
 		{
 		  plots->phiRHistos[i][zBin][yBin]->Fill(pairsRec[i][j].phi_R);
+		  plots->pTHistos[i][zBin][yBin]->Fill(pairsRec[i][j].pT);
 		}
 	      
 	      ///	      	      cout <<"rec phiR:" << pairsRec[i][j].phi_R <<" real: "<< pairsTrue[i][j].phi_R <<" % diff: "<< (pairsRec[i][j].phi_R-pairsTrue[i][j].phi_R)/pairsTrue[i][j].phi_R<<endl;
@@ -832,9 +832,19 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	      plots->zDiffs[i]->SetBinContent(xBin,q2Bin,plots->zDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].z2-pairsTrue[i][j].z2)/fabs(pairsTrue[i][j].z2));
 	      plots->phiRMeans[i]->SetBinContent(xBin,q2Bin,plots->phiRMeans[i]->GetBinContent(xBin,q2Bin)+pairsTrue[i][j].phi_R);
 	      //normalizing phiR doesn't make sense, since we get a lot of larg numbers then for small angles...
-	      if(i==truth)
+	      if(i==gen)
 		{
 		  //		  cout <<" rec phir: "<< pairsRec[i][j].phi_R <<" real: "<< pairsTrue[i][j].phi_R <<endl;
+		  
+		}
+	      if(i==elec)
+		{
+		  //		  cout <<"elec:  rec phir: "<< pairsRec[i][j].phi_R <<" true: "<< pairsTrue[i][j].phi_R <<endl;
+		  
+		}
+	      if(i==da)
+		{
+		  //  		  cout <<"da:  rec phir: "<< pairsRec[i][j].phi_R <<" real: "<< pairsTrue[i][j].phi_R <<endl;
 		}
 	      plots->phiRDiffs[i]->SetBinContent(xBin,q2Bin,plots->phiRDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].phi_R-pairsTrue[i][j].phi_R));
 	    }
@@ -980,6 +990,9 @@ int main(int argc, char** argv)
 	}
     }
 
+  
+
+
   TChain *chain = new TChain("Delphes");
   chain->Add(argv[1]);
 
@@ -993,10 +1006,10 @@ int main(int argc, char** argv)
   plots->zBins.push_back(0.5);
   plots->zBins.push_back(2.0);
   
+  plots->yBins.push_back(0.05);
   plots->yBins.push_back(0.1);
   plots->yBins.push_back(0.2);
   plots->yBins.push_back(0.5);
-  plots->yBins.push_back(0.8);
   plots->yBins.push_back(2.0);
   
   cout <<" book histogram: " << endl;
@@ -1011,7 +1024,6 @@ int main(int argc, char** argv)
   cout <<"plotting... "<<endl;  
   TCanvas c1;
   plots->angCorr->Draw("colz");
-
   
   c1.SetLogy();
   c1.SetLogx();
@@ -1030,7 +1042,8 @@ int main(int argc, char** argv)
   plots->Q2VsXSmearMixed->SetMaximum(1.0);
   plots->Q2VsXSmearMixed->SetMinimum(0.0);
 
-
+  cout <<"test1 " << endl;
+  cout <<plots->phiRHistos[0][0][0]->GetMaximum()<<endl;
 
   int d=sqrt(plots->zBins.size());
   
@@ -1045,10 +1058,6 @@ int main(int argc, char** argv)
 
   c1.SetLogy(false);
   c1.SetLogx(false);
-
-  myFile->Write();
-  myFile->Close();
-  
   for(int j=0;j<plots->yBins.size();j++)
     {
 	for(int k=0;k<plots->zBins.size();k++)
@@ -1056,18 +1065,44 @@ int main(int argc, char** argv)
 	  c1.cd(k+1);
 	  double max=0;
 	  double min=100000000;
+	  double maxpt=0;
+	  double minpt=100000000;
+
 	  for(int i=0;i<recTypeEnd;i++)
 	    {
+	      cout <<"trying i " << i <<" k: " << k <<" j: "<< j <<endl;
+	      cout <<plots->phiRHistos[0][0][0]->GetMaximum()<<endl;
+	      cout <<"lala" <<endl;
+	      cout <<plots->phiRHistos[i][k][j]->GetMaximum()<<endl;
+	      
+	      cout <<"fsafds"<<endl;
 	      if(max<plots->phiRHistos[i][k][j]->GetMaximum())
+		{
+		  cout <<".."<<endl;
 		max=plots->phiRHistos[i][k][j]->GetMaximum();
+		}
 	      if(min>plots->phiRHistos[i][k][j]->GetMinimum())
-		min=plots->phiRHistos[i][k][j]->GetMinimum();
+		{
+		  cout <<".. .."<<endl;
+		  min=plots->phiRHistos[i][k][j]->GetMinimum();
+		}
+	      cout <<"-1" <<endl;
+	      if(maxpt<plots->pTHistos[i][k][j]->GetMaximum())
+		maxpt=plots->pTHistos[i][k][j]->GetMaximum();
+	      if(minpt>plots->pTHistos[i][k][j]->GetMinimum())
+		minpt=plots->pTHistos[i][k][j]->GetMinimum();
 	    }
+	  cout <<"1" <<endl;
 	  for(int i=0;i<recTypeEnd;i++)
 	    {
 	      plots->phiRHistos[i][k][j]->SetMaximum(1.2*max);
 	      plots->phiRHistos[i][k][j]->SetMinimum(1.2*min);
+
+	      plots->pTHistos[i][k][j]->SetMaximum(1.2*maxpt);
+	      plots->pTHistos[i][k][j]->SetMinimum(1.2*minpt);
+
 	    }
+	  	  cout <<"2" <<endl;
 	  for(int i=0;i<recTypeEnd;i++)
 	    {
 	      cout <<"trying to plot i: "<< i <<" j : " << j << " k: "<< k <<endl;
@@ -1086,7 +1121,9 @@ int main(int argc, char** argv)
 	      c1.SaveAs(buffer);
 	      cout <<"done " <<endl;*/
 	    }
+	  	  cout <<"3" <<endl;
 	}
+		  cout <<"4" <<endl;
 	auto legend=new TLegend(0,0,1.0,1,0);
 
 	for(int i=0;i<recTypeEnd;i++)
@@ -1109,6 +1146,50 @@ int main(int argc, char** argv)
 	sprintf(buffer,"phiRDists_yBin_%d_%d_%d.root",j,beamEnergyI,hadronBeamEnergyI);
 	c1.SaveAs(buffer);
 
+	///---
+	for(int k=0;k<plots->zBins.size();k++)
+	  {
+	    c1.cd(k+1);
+	    for(int i=0;i<recTypeEnd;i++)
+	      {
+		cout <<"trying to plot i: "<< i <<" j : " << j << " k: "<< k <<endl;
+		plots->pTHistos[i][k][j]->SetMarkerColor(colors[i]);
+		plots->pTHistos[i][k][j]->SetLineColor(colors[i]);
+		plots->pTHistos[i][k][j]->SetMarkerStyle(markerStyles[i]);
+		if(i==0)
+		  plots->pTHistos[i][k][j]->Draw("P");
+		else
+		  plots->pTHistos[i][k][j]->Draw("SAME P");
+		
+		//save them individually
+		/*	      c1.cd(0);
+			      plots->pTHistos[i][k][j]->Draw();
+			      sprintf(buffer,"allPhiRHistos/pT_%s_zBin%d_yBin%d.png",recTypeNames[i].c_str(),k,j);
+			      c1.SaveAs(buffer);
+			      cout <<"done " <<endl;*/
+	      }
+	  }
+	auto legendpt=new TLegend(0,0,1.0,1,0);
+	
+	for(int i=0;i<recTypeEnd;i++)
+	  {
+	    legendpt->AddEntry(plots->pTHistos[i][0][j],recTypeNames[i].c_str(),"p");
+	    
+	    TH1* histo=(TH1*)gDirectory->Get(plots->pTHistos[i][0][j]->GetName());
+	    cout <<" pull name for legend: " << plots->pTHistos[i][0][j]->GetName() <<endl;
+	    cout <<"color for marker: "<< plots->pTHistos[i][0][j]->GetMarkerColor()<<endl;;
+	    cout <<" or " << histo->GetMarkerColor()<<endl;
+	    
+	    cout <<"style for marker: "<< plots->pTHistos[i][0][j]->GetMarkerStyle()<<endl;
+	    cout <<" or " << histo->GetMarkerStyle()<<endl;
+	  }
+	c1.cd(plots->zBins.size()+1);
+	legendpt->Draw();
+	legendpt->Draw();
+	sprintf(buffer,"pTDists_yBin_%d_%d_%d.png",j,beamEnergyI,hadronBeamEnergyI);
+	c1.SaveAs(buffer);
+	sprintf(buffer,"pTDists_yBin_%d_%d_%d.root",j,beamEnergyI,hadronBeamEnergyI);
+	c1.SaveAs(buffer);	
     }
   c1.SetLogy();
   c1.SetLogx();
@@ -1212,10 +1293,20 @@ int main(int argc, char** argv)
   result->Write("results.root");
 
   cout << "** Exiting..." << endl;
+  
+  myFile->Write();
+  myFile->Close();
 
   delete plots;
   delete result;
   delete treeReader;
   delete chain;
+  
+
 
 }
+
+
+
+
+

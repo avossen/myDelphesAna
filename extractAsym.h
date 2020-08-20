@@ -15,6 +15,9 @@ void setBranchAddresses(TTree* mTree,diHadTreeFields& fields)
   mTree->SetBranchAddress("numHadronPairs",&fields.numHadronPairs);
   mTree->SetBranchAddress("phiR",fields.phiR);
   mTree->SetBranchAddress("phiS",fields.phiS);
+  mTree->SetBranchAddress("truePhiR",fields.truePhiR);
+  mTree->SetBranchAddress("truePhiS",fields.truePhiS);
+
   mTree->SetBranchAddress("phiH",fields.phiH);
   mTree->SetBranchAddress("z",fields.z);
   mTree->SetBranchAddress("M",fields.M);
@@ -27,27 +30,6 @@ void setBranchAddresses(TTree* mTree,diHadTreeFields& fields)
   mTree->SetBranchAddress("pairType",fields.pairType);
 }
 
-
-
-int getBin(vector<float>& b1, float value)
-{
-  int coo1=-1;
-
-  for(unsigned int i=0;i<b1.size();i++)
-    {
-      if(value<=b1[i])
-	{
-	coo1=i;
-	break;
-	}
-    }
-  /*  if(coo1<0)
-    {
-        cout <<"wrong coo: val: " << value <<endl;
-	}*/
-  //  cout <<"value: " << value <<" coo: " << coo1 <<endl;
-  return coo1;
-}
 
 template<class T> T** allocateArray(int dim1, int dim2);
 template<class T> T*** allocateArray(int dim1, int dim2, int dim3);

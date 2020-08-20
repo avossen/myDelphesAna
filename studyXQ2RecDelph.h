@@ -52,9 +52,12 @@ struct diHadTreeFields{
   int polarization;
 
   int numHadronPairs;
-  float phiR[maxFields];
-  float phiH[maxFields];
   float phiS[maxFields];
+  float phiR[maxFields];
+  float truePhiS[maxFields];
+  float truePhiR[maxFields];
+  
+  float phiH[maxFields];
   float z[maxFields];
   float M[maxFields];
   float theta[maxFields];
@@ -77,6 +80,8 @@ float printVect(TVector3& v)
   cout <<"( " << v.Px() <<" " << v.Py() <<" " << v.Pz()<<" )"<<endl;
 }
 #include "HadronPair.h"
+bool checkSanity(HadronPair& pair);
+
 struct Kins
 {
   float x;
@@ -87,25 +92,33 @@ struct Kins
 };
 
 
-void fillTree(TTree* tree, diHadTreeFields& fields,vector<HadronPair>& pairs,const TLorentzVector& qLab,const TVector3& breitBoost,const TLorentzVector& leptonInLab,const TVector3& spinVect, float weight, float unc)
+void fillTree(TTree* tree, diHadTreeFields& fields,vector<HadronPair>& pairs,const TLorentzVector& qLab,const TVector3& breitBoost,const TLorentzVector& leptonInLab,const TVector3& spinVect, float weight, float unc, vector<HadronPair>& pairsTrue, const TLorentzVector& qLabTrue, const TVector3& breitBoostTrue)
 {
   //q=l-l'-->l'=l-q
   TLorentzVector leptonOut=leptonInLab-qLab;
+  TLorentzVector leptonOutTrue=leptonInLab-qLabTrue;
 
   leptonOut.Boost(breitBoost);
+  leptonOutTrue.Boost(breitBoostTrue);
   TLorentzVector mQ=qLab;
+  TLorentzVector mQTrue=qLabTrue;
   mQ.Boost(breitBoost);
+    mQTrue.Boost(breitBoostTrue);
 
   //spinBivec = Tools::Reject(spinBivec,pQ); // pedantic (no effect)
   
   float phiS = Tools::PlaneAngle(mQ.Vect(),leptonOut.Vect(),mQ.Vect(),spinVect);
-
+  float truePhiS = Tools::PlaneAngle(mQTrue.Vect(),leptonOutTrue.Vect(),mQTrue.Vect(),spinVect);
+  //  cout <<"true phiS: " << truePhiS <<endl;
   //assume that event vars have been filled before
   fields.numHadronPairs=pairs.size();
   for(int i=0;i<pairs.size();i++)
     {
+      double truePhiR=pairsTrue[i].phi_R;
       fields.phiR[i]=pairs[i].phi_R;
       fields.phiS[i]=phiS;
+      fields.truePhiS[i]=truePhiS;
+      fields.truePhiR[i]=truePhiR;
       fields.phiH[i]=pairs[i].phi_h;
       fields.z[i]=pairs[i].z;
       fields.xF[i]=pairs[i].xF;
@@ -113,9 +126,12 @@ void fillTree(TTree* tree, diHadTreeFields& fields,vector<HadronPair>& pairs,con
       fields.theta[i]=pairs[i].m_theta;
       fields.M[i]=pairs[i].M;
       fields.pairType[i]=32;
-      fields.weight[i]=1+weight*fields.polarization*sin(pairs[i].phi_R+phiS);
-      fields.weightUpperLimit[i]=1+(weight+unc)*fields.polarization*sin(pairs[i].phi_R+phiS);
-      fields.weightLowerLimit[i]=1+(weight-unc)*fields.polarization*sin(pairs[i].phi_R+phiS);
+      //      fields.weight[i]=1+weight*fields.polarization*sin(truePhiR+truePhiS);
+      //polarization is already taken into account via phiS
+      /////      fields.weight[i]=1+weight*sin(truePhiR+truePhiS);
+      fields.weight[i]=1+weight*sin(truePhiR+truePhiS);
+      fields.weightUpperLimit[i]=1+(weight+unc)*fields.polarization*sin(truePhiR+truePhiS);
+      fields.weightLowerLimit[i]=1+(weight-unc)*fields.polarization*sin(truePhiR+truePhiS);
     }
   tree->Fill();
 }
@@ -133,6 +149,9 @@ void doBranching(TTree* tree, diHadTreeFields& fields)
   tree->Branch("numHadronPairs",&(fields.numHadronPairs),"numHadronPairs/I");
   tree->Branch("phiR",(fields.phiR),"phiR[numHadronPairs]/F");
   tree->Branch("phiS",(fields.phiS),"phiS[numHadronPairs]/F");
+  tree->Branch("truePhiR",(fields.truePhiR),"truePhiR[numHadronPairs]/F");
+  tree->Branch("truePhiS",(fields.truePhiS),"truePhiS[numHadronPairs]/F");
+
   tree->Branch("phiH",(fields.phiH),"phiH[numHadronPairs]/F");
   tree->Branch("z",(fields.z),"z[numHadronPairs]/F");
   tree->Branch("M",(fields.M),"M[numHadronPairs]/F");
@@ -439,17 +458,23 @@ void getHadronPairs(vector<HadronPair>& pairsRec, vector<HadronPair>& pairsTrue,
 	    if(tp2->PID!=-211)
 	      continue;
 	    //should put minimum cuts here, maybe z1, z2> 0.1
+	    
 	    TLorentzVector real1=tp->P4();
 	    TLorentzVector real2=tp2->P4();
 	    
 	    HadronPair pairRec(lv1,lv2,recBoost.breitBoost,recBoost.W,recBoost.lv_q,recBoost.lv_l,targetPz);
 	    HadronPair pairTruth(real1,real2,realBoost.breitBoost,realBoost.W,realBoost.lv_q,realBoost.lv_l,targetPz);
 
+	    //	    cout <<" real1: "<<  printLVect(real1)<< "real2: "<< printLVect(real2) <<" realBoost: "<< printVect(realBoost.breitBoost) <<" W: "<< realBoost.W <<" lvQ: "<< printLVect(realBoost.lv_q) <<" lvL: " << printLVect(realBoost.lv_l) <<" target Pz " <<endl;
+	    if(!checkSanity(pairTruth))
+		{
+		  //		  cout <<"made pairTruth insane" <<endl;
+		}
 	    //	    //	    cout <<" rec z1: "<< pairRec.z1 <<" truth : "<< pairTruth.z1 <<" z2: "<< pairRec.z2 <<" truth: "<< pairTruth.z2 <<endl;
 	    if(useMatchedTruth)
 	      {
-	      	    if(pairTruth.z1< 0.05 || pairTruth.z2<0.05)
-		      continue;
+		if(pairTruth.z1< 0.05 || pairTruth.z2<0.05)
+		  continue;
 	      }
 	    else
 	      {
@@ -498,7 +523,7 @@ bool checkSanity(HadronPair& pair)
   if(isnan(pair.z2))
     {
       //      cout <<" nan z2 "<<endl;
-                  sane=false;
+      sane=false;
 
     }
   if(sane)
