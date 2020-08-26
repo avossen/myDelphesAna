@@ -1,4 +1,6 @@
 #include "TLorentzVector.h"
+#include "TRandom.h"
+#include "TRandom3.h"
 #include "TF1.h"
 #include "TH1D.h"
 #include "TH2D.h"
@@ -352,7 +354,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
   Jet *genjet;
   Jet *matchedjet;
   TObject *object;
-
+  TRandom3 myRand(0);
   TLorentzVector momentum;
 
   Float_t Eem, Ehad;
@@ -401,7 +403,30 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       //      cout <<"lepton..." <<endl;
       //      TLorentzVector	  pleptonOut   = ((GenParticle*)branchParticle->At(5))->P4();
       //in the dire output this is at 4 (probably because coordinate system was switched originally)
-      TLorentzVector	  pleptonOut   = ((GenParticle*)branchParticle->At(4))->P4();
+
+      //instead of taking a fixed position for the scattered lepton, take the one with the highest pt
+      //(position is nominaly 4, but apparently not always...)
+
+      int ePos=-1;
+      float maxPt=-1.0;
+      
+      for(int ie=0;ie<branchParticle->GetEntries();ie++)
+	{
+	  GenParticle* mParticle=((GenParticle*)branchParticle->At(ie));
+	  if(mParticle->Status!=1 || mParticle->PID!=11)
+	    continue;
+	  TLorentzVector p=mParticle->P4();
+	  if(p.Pt()>maxPt)
+	    {
+	      maxPt=p.Pt();
+	      ePos=ie;
+	    }
+	}
+      if(ePos<0)
+	continue;
+      //      cout <<"electron position: "<< ePos <<endl;
+      //      TLorentzVector	  pleptonOut   = ((GenParticle*)branchParticle->At(4))->P4();
+            TLorentzVector	  pleptonOut   = ((GenParticle*)branchParticle->At(ePos))->P4();
       //      cout <<"lep out..." <<endl;
       TLorentzVector	  pPhoton      = pleptonIn - pleptonOut;
       //      cout <<"photon..." <<endl;
@@ -411,28 +436,64 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       double  x = Q2 / (2. * pProton.Dot(pPhoton));
       double  y = (pProton.Dot(pPhoton)) / (pProton.Dot(pleptonIn));
       //       cout <<"true q2: " << Q2 <<" x: " << x <<" y: " << y <<endl;
-      //might as well make it explicit
+
+     //might as well make it explicit
       double trueY=y;
 
 
-      if(y<0.05)
+      if(W2<0)
+	{
+	  //	  cout <<"insane Q2: "<< Q2 << " x: " << x <<" y: "<< y <<endl;
+	  //	  cout <<"lept in " << endl;
+	  //	  printLVect(pleptonIn);
+	  //	  cout <<" out " <<endl;
+	  //	  printLVect(pleptonOut);
+	  //	  printLVect(pPhoton);
+	}
+
+
+      float W2Cut=3.0;
+      
+      if(Q2<1.0)
+	continue;
+      if(y<0.005)
+	continue;
+      if(W2<W2Cut)
 	continue;
 
       
       TLorentzVector pRecElectron;
       Electron* recElectron;
-      if(branchElectron->GetEntries()>0)
- 	{
- 	  recElectron = ((Electron*)branchElectron->At(0));
+
+      int recElectronIndex=-1;
+      float recElectronPt=-1.0;
+
+      for(int ie=0;ie<branchElectron->GetEntries();ie++)
+	{
+	  Electron* e=((Electron*)branchElectron->At(ie));
+	  if(e->P4().Pt()>recElectronPt)
+	    {
+	      recElectronPt=e->P4().Pt();
+	      recElectronIndex=ie;
+	    }
+	}
+
+      if(recElectronIndex<0)
+	{
+	  continue;
+	}
+      //      cout <<"recElectronIndex: " << recElectronIndex <<endl;
+      //if(branchElectron->GetEntries()>0)
+      // 	{
+ 	  recElectron = ((Electron*)branchElectron->At(recElectronIndex));
  	  pRecElectron =recElectron->P4();
- 	}
-      else
- 	{
- 	  continue;
- 	}
+	  // 	}
+	  //      else
+	  // 	{
+	  // 	  continue;
+	  // 	}
       //       cout <<"study rec .." <<endl;
       studyReconstruction(branchParticle,branchEFlowTrack,branchEFlowPhoton,branchEFlowNeutralHadron,branchTrack);
-
       //       cout <<"rec electron E: "<< e.E()<<endl;
       //             cout << "true electron 1: "<< pleptonOut.E() <<endl;
       recElectronParticle = (GenParticle*) recElectron->Particle.GetObject();
@@ -458,8 +519,6 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       plots->angTrue->Fill(hvOrig.theta);
       plots->angRes->Fill(hvSmeared.theta-hvOrig.theta);
       plots->angCorr->Fill(hvSmeared.theta, hvOrig.theta);
-
-
 
       
       if(useTruth)
@@ -493,14 +552,13 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       qOrig.SetPxPyPzE(recElectronParticle->Px,recElectronParticle->Py,recElectronParticle->Pz,recElectronParticle->E);
       /////////
       TLorentzVector qH;
-
       //diff is sum since they should be in opposite directions
       //      cout <<"hv smeard pz: "<< hvSmeared.sumPz <<" lepton pz: "<< e.Pz() <<" diff: " << hvSmeared.sumPz+e.Pz()<<endl;
       qH.SetPxPyPzE(-hvSmeared.sumPx,-hvSmeared.sumPy,-hvSmeared.sumPz,hvSmeared.sumE);
       //l direction, h size
       TLorentzVector qLH;
       //
-      TVector3 eDir(e.Px(),e.Py(),e.Pz());
+      TVector3 eDir(pRecElectron.Px(),pRecElectron.Py(),pRecElectron.Pz());
       //      cout <<" edir: " << printVect(eDir);
       eDir.SetMag(qH.Vect().Mag());
       //      cout <<" after set mag: " << printVect(eDir);
@@ -508,7 +566,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       //      cout <<"resulting qlh: " << printLVect(qLH);
       //only lepton
       TLorentzVector qL;
-      qL.SetPxPyPzE(e.Px(),e.Py(),e.Pz(),e.E());
+      qL.SetPxPyPzE(pRecElectron.Px(),pRecElectron.Py(),pRecElectron.Pz(),pRecElectron.E());
       //      cout <<" l dir: "<< printLVect(qL);
       //now we have the outgoing lepton direction, q is in-out
 
@@ -519,7 +577,6 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       //      cout <<" h sum pz: "<< hvSmeared.sumPz << " l pz: " << pleptonOut.Pz() <<endl;
       //      cout <<"initial pz sum: " << kinOrig.x*hadronBeamEnergy-beamEnergy <<" and then " << hvSmeared.sumPz+pleptonOut.Pz()  <<" diff: "<< kinOrig.x*hadronBeamEnergy-beamEnergy -( hvSmeared.sumPz+pleptonOut.Pz()) <<endl;
       //            cout <<"same w/o  x:initial pz sum: " << hadronBeamEnergy-beamEnergy <<" and then " << hvSmeared.sumPz+pleptonOut.Pz()  <<" diff: "<< hadronBeamEnergy-beamEnergy -( hvSmeared.sumPz+pleptonOut.Pz()) <<endl;
-      
       
       qH=pleptonIn-qH;
       qL=pleptonIn-qL;
@@ -616,7 +673,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       TVector3 q_bv[8];
       double W[8];
 
-      TLorentzVector qElec=pleptonIn-e;
+      TLorentzVector qElec=pleptonIn-pRecElectron;
       
       for(int i=0;i<recTypeEnd;i++)
 	{
@@ -634,7 +691,6 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	    }
 	  else
 	    {
-	      
 	      if(i==truth || i==gen || i==genNoAcc)
 		{
 		  q[i]=pPhoton;
@@ -653,23 +709,18 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       //      cout <<"orig q: "<< printLVect(qOrig) <<endl;
         for(int i=0;i<recTypeEnd;i++)
 	{
-	  //	  cout <<recTypeNames[i]<<": " << printLVect(q[i]) <<endl;
-	}
 
+	}
       
       TLorentzVector qOrig_P=qOrig+pProton;
-
       float WOrig=qOrig_P.M();
       if(WOrig < 0)
 	{
-	  cout <<"worig < 0, qOrig: " << printLVect(qOrig) <<", pleptOut " << particle->Px <<", " <<particle->Py <<" " << particle->Pz <<" " << particle->E <<endl;
+	  cout <<"worig < 0, qOrig: " << printLVect(qOrig) <<", pleptOut " << recElectronParticle->Px <<", " <<recElectronParticle->Py <<" " << recElectronParticle->Pz <<" " <<recElectronParticle->E <<endl;
 	  cout <<"plept out: "<< printLVect(pleptonOut)<<endl;
+	  cout <<" orig W2: "<< W2 << " worig^2: "<< WOrig*WOrig<<endl;
 	}
-      
-      
-      //      TVector3 qH_bv=qH_P.BoostVector();
-      //      TVector3 qL_bv=qL_P.BoostVector();
-      //      TVector3 qLH_bv=qLH_P.BoostVector();
+
       TVector3 orig_bv=qOrig_P.BoostVector();
 
       //      qH_bv=(-1)*qH_bv;
@@ -714,12 +765,14 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  recBoost.W=W[i];
 	  recBoost.lv_q=q[i];
 	  recBoost.lv_l=pleptonIn;
+	  if(W[i]*W[i]<W2Cut)
+	    continue;
 	  switch(i)
 	    {
 	    case truth:
-	      //	      cout <<"truth recboost: "<< printLVect(recBoost.lv_q) <<" realBoost: "<< printLVect(realBoost.lv_q) <<endl;
-	      //	      cout <<"rec W: "<< recBoost.W <<" real: "<< realBoost.W <<endl;
-	      //	      cout <<"rec bosot : "<< printVect(recBoost.breitBoost) <<" real: "<< printVect(realBoost.breitBoost) <<endl;
+	      //	      	      cout <<"truth recboost: "<< printLVect(recBoost.lv_q) <<" realBoost: "<< printLVect(realBoost.lv_q) <<endl;
+	      //	      	      cout <<"rec W: "<< recBoost.W <<" real: "<< realBoost.W <<endl;
+	      //	      	      cout <<"rec bosot : "<< printVect(recBoost.breitBoost) <<" real: "<< printVect(realBoost.breitBoost) <<endl;
 	      getHadronPairs(pairsRec[i],pairsTrue[i],branchEFlowTrack,recBoost,realBoost,Pz,true,false,false);
 	      break;
 	    case gen:
@@ -736,62 +789,45 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  ////	  	  cout <<" running over " << pairsRec[i].size() << " pairs for comb " << recTypeNames[i] <<endl;
 
 	  //	  cout <<" num pairs " << pairsRec[i].size() <<endl;
+	  //for asymmetry calculation, always have spin vector point up
+		  
 	  for(int j=0;j<pairsRec[i].size();j++)
 	    {
+	      int polarization=1.0;
+	      //	      if(rand() % 100 >=50)
+	      if(myRand.Rndm()<0.5)
+		{
+		  polarization=-1.0;
+		}
+	      //	      cout <<"throwing polarization for pair " << j <<" :" << polarization <<endl;
+	      //	      TVector3 spinVect;
+	      //	      spinVect.SetXYZ(0,polarization,0);	      
 	      if(!checkSanity(pairsTrue[i][j]))
 		{
-		  	  cout <<"true pair insane i:" <<i<<endl;
+		  cout <<"true pair insane i:" <<i<<endl;
 		  continue;
 		}
 	      if( !checkSanity(pairsRec[i][j]))
 		{
-		  		  cout <<"rec pair insane " <<endl;
+		  cout <<"rec pair insane " <<endl;
 		  continue;
 		}
 	      double meanWeight=0;
 	      double unc=0;
 	      //	      cout <<"getting weight for Q2: "<< Q2<< " M: "<< pairsTrue[i][j].M <<" x: " << x <<" z: "<< pairsTrue[i][j].z <<endl;
-	      m_weights->getWeight(sqrt(Q2),pairsTrue[i][j].M,x,pairsTrue[i][j].z,meanWeight,unc);
+	      	      m_weights->getWeight(sqrt(Q2),pairsTrue[i][j].M,x,pairsTrue[i][j].z,meanWeight,unc);
 	      //	      cout <<"done: " << meanWeight<< endl;
 
 	      ///--->set to zero for testing
 	      //	      meanWeight=0.1;
 	      //	      unc=0.05;
 	      //-->
-	      	      meanWeight=0.0;
-		      unc=0.0;
-
-	      
-	      if(meanWeight==0)
-		{
-		  //		  cout <<"weight zero for Q2: "<< Q2<< " M: "<< pairsTrue[i][j].M <<" x: " << x <<" z: "<< pairsTrue[i][j].z <<endl;
-		}
-	      //	      cout <<" unc: "<< unc <<endl;
-
-      int polarization=1.0;
-      if(rand() % 100 >=50)
-	{
-	  polarization=-1.0;
-	}
-      TVector3 spinVect;
-      spinVect.SetXYZ(0,polarization,0);
-      //for asymmetry calculation, always have spin vector point up
-	      
+		      //		      meanWeight=0.1;
+		      //		      unc=0.0;
 	      pairsRec[i][j].weight=meanWeight;
-	      pairsRec[i][j].weightUncert= unc;
+	      pairsRec[i][j].weightUncert=unc;
+	      pairsRec[i][j].polarization=polarization;
 
-	      plots->treeFields[i].polarization=polarization;
-	      plots->treeFields[i].Q2=usedQ2[i];
-	      plots->treeFields[i].x=usedx[i];
-	      plots->treeFields[i].y=usedy[i];
-	      plots->treeFields[i].W=W[i];
-	      plots->treeFields[i].Mx=0;
-	      plots->treeFields[i].evtNr=entry;
-
-	      //	      cout<<"trying to fill tree" <<endl;
-	      fillTree(plots->diHadTrees[i],plots->treeFields[i],pairsRec[i],q[i],q_bv[i],pleptonIn,spinVect,meanWeight, unc,pairsTrue[i],qOrig,orig_bv);
-	      //	      cout <<"done " <<endl;
-	      
 	      int zBin=getBin(plots->zBins,pairsTrue[i][j].z);
 	      int yBin=getBin(plots->yBins,y);
 	      if(zBin < 0 || yBin < 0)
@@ -801,14 +837,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 		}
 	      //	      cout <<"zBin: "<< zBin << " yBin: "<< yBin <<" z: "<< pairsTrue[i][j].z<<" y: "<< y<<endl;
 
-
-	      if(pairsRec[i][j].phi_R < 0 ||  pairsRec[i][j].phi_R> 2*TMath::Pi())
-		{
-		//		cout <<" phi not in range " <<endl;
-		}
-	      //		cout <<"filling with index " << i <<endl;
-		
-	      if(i==true)
+	      if(i==truth)
 		{
 		  plots->phiRHistos[i][zBin][yBin]->Fill(pairsTrue[i][j].phi_R);
 		  plots->pTHistos[i][zBin][yBin]->Fill(pairsTrue[i][j].pT);
@@ -847,7 +876,21 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 		  //  		  cout <<"da:  rec phir: "<< pairsRec[i][j].phi_R <<" real: "<< pairsTrue[i][j].phi_R <<endl;
 		}
 	      plots->phiRDiffs[i]->SetBinContent(xBin,q2Bin,plots->phiRDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].phi_R-pairsTrue[i][j].phi_R));
-	    }
+	    } //end of pairs
+	      
+
+	  //now part of hadron pairs
+	  //	  plots->treeFields[i].polarization=polarization;
+	  plots->treeFields[i].Q2=usedQ2[i];
+	  plots->treeFields[i].x=usedx[i];
+	  plots->treeFields[i].y=usedy[i];
+	  plots->treeFields[i].W=W[i];
+	  plots->treeFields[i].Mx=0;
+	  plots->treeFields[i].evtNr=entry;
+
+	      //	      cout<<"trying to fill tree" <<endl;
+	
+	  fillTree(plots->diHadTrees[i],plots->treeFields[i],pairsRec[i],q[i],q_bv[i],pleptonIn,pairsTrue[i],qOrig,orig_bv);
 	  //	  cout <<" done looking at rec pairs.. " << endl;
 	}
       
@@ -946,16 +989,18 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 int main(int argc, char** argv)
 {
   srand(time(NULL));
+
   m_weights=new AUTweight();
+
+
   
   int colors[]={kRed,kBlue,kGreen,kBlack,kCyan,kMagenta,kOrange,kYellow};
   int markerStyles[]={20,21,22,23,43,33,34,47};
 
   char buffer[200];
   gStyle->SetOptStat(0);
-
   
-  srand(time(NULL));
+
   if(argc<4)
     {
       cout <<"filename and electron+hadron beam energy required " <<endl;

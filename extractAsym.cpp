@@ -40,7 +40,7 @@ int main(int argc, char** argv)
   int colors[]={kRed,kBlue,kGreen,kBlack,kCyan,kMagenta,kOrange,kYellow};
   int markerStyles[]={20,21,22,23,43,33,34,47};
   string binningNames[]={"x","z","M"};
-  
+  cout <<"??" <<endl;
   char buffer[1000];
 
   string recTypeNames[]={"elec","hadronic","da","mixed","mostlyLepton","trueBoost","generatedWAcc","generatedWOAcc"};
@@ -92,7 +92,7 @@ int main(int argc, char** argv)
   vector<float> mBins;
   vector<float> phiBins;
 
-  int numPhiBins=16;
+  int numPhiBins=8;
   for(int i=0;i<numPhiBins;i++)
     {
       float bin=(i+1)*2*TMath::Pi()/numPhiBins;
@@ -101,7 +101,7 @@ int main(int argc, char** argv)
   
   xBins.push_back(0.15);
   xBins.push_back(0.2);
-  xBins.push_back(0.3);
+  xBins.push_back(0.35);
   xBins.push_back(50.0);
 
   zBins.push_back(0.3);
@@ -114,7 +114,7 @@ int main(int argc, char** argv)
   mBins.push_back(0.9);
   mBins.push_back(200.0);
 
-  
+
   
   for(int i=0;i<recTypeEnd;i++)
     {
@@ -127,45 +127,46 @@ int main(int argc, char** argv)
 
       long numEntries=mTrees[treeIndex]->GetEntries();
       //      cout <<"we have " << numEntries << " entries " <<endl;
+      cout <<"getting " << numEntries <<" for recTypeName " << recTypeNames[i]<<endl;
       for(int ie=0;ie<numEntries;ie++)
 	{
 	  mTrees[treeIndex]->GetEntry(ie);
-	  
-	  //	  cout <<"got entry " << ie <<endl;
+
+
 	  int xBin=getBin(xBins,treeFields[treeIndex].x);
 	  if(treeFields[treeIndex].x<0.0)
-	    continue;
-	  if(treeFields[treeIndex].x>1.0)
 	    {
 	      continue;
 	    }
+	  if(treeFields[treeIndex].x>1.0)
+	    {
+	      continue;
+	   }
 	  
-	  int polIndex=0;
-	  if(treeFields[treeIndex].polarization>0)
-	    {
-	      polIndex=1;
-	      upCount++;
-	    }
-	  else
-	    {
-	      downCount++;
-	    }
+
+
 
 	  //some temporary event cuts
 	  if(treeFields[treeIndex].x<0.05)
 	    {
-	      	    continue;
+	      continue;
 	    }
-	  if(treeFields[treeIndex].y<0.05)
+	  if(treeFields[treeIndex].y>0.1)
 	      {
-			    continue;
+		continue;
 	      }
-	  
+	
 
 	  //	  cout <<"x: "<< treeFields[treeIndex].x <<" bin: " << xBin<<endl;
 	  //	  cout <<"looking at " << treeFields[treeIndex].numHadronPairs<<" pairs " <<endl;
+
 	  for(int iPair=0;iPair<treeFields[treeIndex].numHadronPairs;iPair++)
 	    {
+	      int polIndex=0;
+	      if(treeFields[treeIndex].polarization[iPair]>0)
+		{
+		  polIndex=1;
+		}
 
 	      diHadTreeFields* fields=&(treeFields[treeIndex]);
 	      if(treeIndex==elec)
@@ -173,7 +174,7 @@ int main(int argc, char** argv)
 		  //		  cout <<" elec true phiR: "<< fields->truePhiR[iPair] <<" rec: "<< fields->phiR[iPair] << " true phiS: "<< fields->truePhiS[iPair] <<" rec: " << fields->phiS[iPair] <<endl;
 		}
 
-	      
+
 	      if(isnan(treeFields[treeIndex].weight[iPair]))
 		continue;
 	      if(isnan(treeFields[treeIndex].weightUpperLimit[iPair]))
@@ -192,6 +193,9 @@ int main(int argc, char** argv)
 	      int zBin=getBin(zBins,treeFields[treeIndex].z[iPair]);
 	      int mBin=getBin(mBins,treeFields[treeIndex].M[iPair]);
 	      float ang=treeFields[treeIndex].phiR[iPair]+treeFields[treeIndex].phiS[iPair];
+	      //	      float ang=treeFields[treeIndex].phiR[iPair];
+	      //	      	      	      float ang=treeFields[treeIndex].phiS[iPair];
+	      //	      cout <<"phiS: "<< ang <<endl;
 
 	      //	      cout <<" z: " << treeFields[treeIndex].z[iPair] <<endl;
 	      //	      cout <<" M: " << treeFields[treeIndex].M[iPair] <<endl;
@@ -205,12 +209,15 @@ int main(int argc, char** argv)
 		{
 		  ang+=(2*TMath::Pi());
 		}
-
 	      //	      cout <<" weight: "<< treeFields[treeIndex].weight[iPair] <<" upper: " << treeFields[treeIndex].weightUpperLimit[iPair] <<" lower: "<< treeFields[treeIndex].weightLowerLimit[iPair]<<endl;
+
+	      if(isnan(ang))
+		continue;
 	      int phiBin=getBin(phiBins,ang);
+	      
 	      float weight=treeFields[treeIndex].weight[iPair];
 	      
-	      weight=1.0;
+	      //	      weight=1.0;
 	      //	      cout <<"2" <<endl;
 	      kinMeans[i][xBinning][xBin]+=(weight*treeFields[treeIndex].x);
 	      kinMeans[i][mBinning][mBin]+=(weight*treeFields[treeIndex].M[iPair]);
@@ -232,15 +239,19 @@ int main(int argc, char** argv)
 	      kinCounts[i][mBinning][mBin]+=(weight);
 	      kinCounts[i][zBinning][zBin]+=(weight);
 	      
-	      
+
 	      counts[i][xBinning][xBin][phiBin][polIndex]+=weight;
+
 	      countsUpper[i][xBinning][xBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair];
+
 	      countsLower[i][xBinning][xBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair];
-	  
+
 	      counts[i][mBinning][mBin][phiBin][polIndex]+=weight;
+
 	      countsUpper[i][mBinning][mBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair];
+
 	      countsLower[i][mBinning][mBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair];
-	      
+
 	      //	      cout <<"3" <<endl;
 	      //	      cout <<" i: "<< i <<" binning: "<< zBinning <<" zbin: "<< zBin <<" phiBin: "<< phiBin <<" pol: "<< polIndex <<endl;
 	      counts[i][zBinning][zBin][phiBin][polIndex]+=weight;
@@ -284,39 +295,55 @@ int main(int argc, char** argv)
 		      x[iBound][phiBin]=(phiBin+0.5)*2*TMath::Pi()/numPhiBins;
 		      ex[iBound][phiBin]=0.0;
 
-		      float eU=sqrt(Nup);
-		      float eD=sqrt(Ndown);
+		      double eU=sqrt(Nup);
+		      double eD=sqrt(Ndown);
 		      
-		      float uDeriv=2*Ndown/((Nup+Ndown)*(Nup+Ndown));
-		      float dDeriv=2*Nup/((Nup+Ndown)*(Nup+Ndown));
+		      double uDeriv=2*Ndown/((Nup+Ndown)*(Nup+Ndown));
+		      double dDeriv=2*Nup/((Nup+Ndown)*(Nup+Ndown));
 		      
 		      ey[iBound][phiBin]=sqrt(uDeriv*uDeriv*eU*eU+dDeriv*dDeriv*eD*eD);
 		  
 		    }
 		  TGraphErrors g(phiBins.size(),x[iBound],y[iBound],ex[iBound],ey[iBound]);
+		  
+		  gStyle->SetOptFit(111);
 		  sprintf(buffer,"graphFor_rec_%s_binning%d_kinBin%d_bound_%s.png",recTypeNames[i].c_str(),binning,kinBin,boundNames[iBound].c_str());
 		  TCanvas c1;
 		  TF1 f1("f1","[0]*sin(x)",0,2*M_PI);
 		  f1.SetParameters(0,0.0);
 		  g.Fit(&f1);
-		  
 		  g.Draw("AP");
 		  c1.SaveAs(buffer);
 		  amps[iBound][i][binning][kinBin]=f1.GetParameter(0);
 		  ampErrs[iBound][i][binning][kinBin]=f1.GetParError(0);
 		  cout << recTypeNames[i] <<", binning: "<< binning<< " kinBin: "<< kinBin <<endl;
 		  cout <<"amp for bound " << iBound<<" " << amps[iBound][i][binning][kinBin] <<endl;
-	      
+
+
+		  
 		}
 
 	    }
 	}
     }
   int numKinBins=xBins.size();
-
+  TH1D* ampDiffHistos[8];
+  TH1D* ampDiffHistosTotal[8];
+  for(int i=0;i<recTypeEnd;i++)
+    {
+      sprintf(buffer,"diffHisto_%s",recTypeNames[i].c_str());
+      ampDiffHistos[i]=new TH1D(buffer,buffer,100,-3,3);
+      sprintf(buffer,"diffHistoTotal_%s",recTypeNames[i].c_str());
+      ampDiffHistosTotal[i]=new TH1D(buffer,buffer,100,-0.03,0.03);
+    }
+  
   for(int binning=0;binning<3;binning++)
     {
+      
       TCanvas c;
+      float maxX=0.8;
+
+      
       for(int i=0;i<recTypeEnd;i++)
 	{
 	  double y[10];
@@ -339,6 +366,17 @@ int main(int argc, char** argv)
 	      cout <<"getting x for binning " << binning <<" : means: "<< kinMeans[i][binning][iKin] << " counts: "<< kinCounts[i][binning][iKin] <<endl;
 	      ex[iKin]=0.0;
 	      cout <<"iKin: "<< iKin << " y: "<< y[iKin] <<" x:" << x[iKin] << " ey: "<< ey[iKin]<<endl;
+
+
+	      if(i!=gen)
+		{
+		  double diff=(y[iKin]-amps[mean][gen][binning][iKin])/sqrt(ey[iKin]*ey[iKin]+ampErrs[mean][i][binning][iKin]*ampErrs[mean][i][binning][iKin]);
+
+		  ampDiffHistos[i]->Fill(diff);
+		  //no normalization to uncertainty
+		  diff=(y[iKin]-amps[mean][gen][binning][iKin]);
+		  ampDiffHistosTotal[i]->Fill(diff);
+		}
 	      
 	    }
 
@@ -359,26 +397,53 @@ int main(int argc, char** argv)
 	    {
 	      g->GetYaxis()->SetTitle("A");
 	      g->GetXaxis()->SetTitle(binningNames[binning].c_str());
-	      g->GetYaxis()->SetRangeUser(-0.2,0.5);
+	      g->GetYaxis()->SetRangeUser(-0.3,0.3);
+	      if(i==0)
+		{
+		gPad->DrawFrame(0.0,-0.3, 1.0, 0.3);
+		g->GetXaxis()->SetLimits(0.0,0.8);
+		}
+	      
 	      g->GetXaxis()->SetRangeUser(0.0,0.8);
 	    }
 	  else
 	    {
-	      g->GetYaxis()->SetRangeUser(-0.2,0.5);
+	      if(i==0)
+		{
+
+		}
+	      g->GetYaxis()->SetRangeUser(-0.3,0.3);
 	    }
 
 	  if(binning==1)
 	    {
+	      if(i==0)
+		{
+		  		  		maxX=0.85;
+		  g->GetXaxis()->SetLimits(0.0,maxX);
+
+		gPad->DrawFrame(0.0,-0.3, maxX, 0.3);
+
+		}
 	      g->GetXaxis()->SetRangeUser(0.0,0.85);
+	      g->GetYaxis()->SetRangeUser(-0.1,0.15);
 	    }
 	  if(binning==2)
 	    {
-	      g->GetXaxis()->SetRangeUser(0.0,1.5);
+	      if(i==0)
+		{
+		  maxX=1.5;
+		gPad->DrawFrame(0.0,-0.3, maxX, 0.3);
+		g->GetXaxis()->SetLimits(0.0,maxX);
+		}
+	      g->GetXaxis()->SetRangeUser(0.0,maxX);
+	      g->GetYaxis()->SetRangeUser(-0.1,0.2);
 	    }
-	  
+
 	  if(i==0)   
 	    {
 	      cout <<"drawing " <<endl;
+
 	      g->Draw("AP");
 	    }
 	  //	  else
@@ -394,11 +459,24 @@ int main(int argc, char** argv)
 
 	  //	        sprintf(buffer,"amps_binning_%s_recType_%s.png",binningNames[binning].c_str(),recTypeNames[i].c_str());
 	}
-
-        sprintf(buffer,"amps_binning_%s.png",binningNames[binning].c_str());
-	c.SaveAs(buffer);
+      TLine *line = new TLine(0,0,maxX,0);
+      line->Draw();
+      sprintf(buffer,"amps_binning_%s.png",binningNames[binning].c_str());
+      c.SaveAs(buffer);
     }
-  cout <<"down count: "<< downCount <<" up count: "<< upCount <<endl;
+
+  TCanvas c;
+  for(int i=0;i<recTypeEnd;i++)
+    {
+      sprintf(buffer,"ampDiffHisto_%s.png",recTypeNames[i].c_str());
+      ampDiffHistos[i]->Draw();
+      c.SaveAs(buffer);
+      sprintf(buffer,"ampDiffHistoTotal_%s.png",recTypeNames[i].c_str());
+      ampDiffHistosTotal[i]->Draw();
+      c.SaveAs(buffer);
+
+    }
+  
 }
 
 

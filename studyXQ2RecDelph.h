@@ -49,9 +49,12 @@ struct diHadTreeFields{
   float W;
   float Mx;
   int evtNr;
-  int polarization;
 
   int numHadronPairs;
+    //in principle polarization is per event, but let's try per hadron
+  //to see if that has impact on false asymmetries....
+
+  int polarization[maxFields];
   float phiS[maxFields];
   float phiR[maxFields];
   float truePhiS[maxFields];
@@ -92,7 +95,7 @@ struct Kins
 };
 
 
-void fillTree(TTree* tree, diHadTreeFields& fields,vector<HadronPair>& pairs,const TLorentzVector& qLab,const TVector3& breitBoost,const TLorentzVector& leptonInLab,const TVector3& spinVect, float weight, float unc, vector<HadronPair>& pairsTrue, const TLorentzVector& qLabTrue, const TVector3& breitBoostTrue)
+void fillTree(TTree* tree, diHadTreeFields& fields,vector<HadronPair>& pairs,const TLorentzVector& qLab,const TVector3& breitBoost,const TLorentzVector& leptonInLab, vector<HadronPair>& pairsTrue, const TLorentzVector& qLabTrue, const TVector3& breitBoostTrue)
 {
   //q=l-l'-->l'=l-q
   TLorentzVector leptonOut=leptonInLab-qLab;
@@ -103,18 +106,53 @@ void fillTree(TTree* tree, diHadTreeFields& fields,vector<HadronPair>& pairs,con
   TLorentzVector mQ=qLab;
   TLorentzVector mQTrue=qLabTrue;
   mQ.Boost(breitBoost);
-    mQTrue.Boost(breitBoostTrue);
+  mQTrue.Boost(breitBoostTrue);
 
   //spinBivec = Tools::Reject(spinBivec,pQ); // pedantic (no effect)
+  TVector3 spinVectPos;
+  spinVectPos.SetXYZ(0,1.0,0);
+
+  TVector3 spinVectNeg;
+  spinVectNeg.SetXYZ(0,-1.0,0);
+
   
-  float phiS = Tools::PlaneAngle(mQ.Vect(),leptonOut.Vect(),mQ.Vect(),spinVect);
-  float truePhiS = Tools::PlaneAngle(mQTrue.Vect(),leptonOutTrue.Vect(),mQTrue.Vect(),spinVect);
+  //  float phiS = Tools::PlaneAngle(mQ.Vect(),leptonOut.Vect(),mQ.Vect(),spinVect);
+  //  float truePhiS = Tools::PlaneAngle(mQTrue.Vect(),leptonOutTrue.Vect(),mQTrue.Vect(),spinVect);
+
+  float phiSPos = Tools::PlaneAngle(mQ.Vect(),leptonOut.Vect(),mQ.Vect(),spinVectPos);
+  float truePhiSPos = Tools::PlaneAngle(mQTrue.Vect(),leptonOutTrue.Vect(),mQTrue.Vect(),spinVectPos);
+
+  float phiSNeg = Tools::PlaneAngle(mQ.Vect(),leptonOut.Vect(),mQ.Vect(),spinVectNeg);
+  float truePhiSNeg = Tools::PlaneAngle(mQTrue.Vect(),leptonOutTrue.Vect(),mQTrue.Vect(),spinVectNeg);
+
+  //  cout <<"sum: "<< phiSNeg+phiSPos <<endl;
+  //  cout <<"diff: "<< phiSNeg-phiSPos <<endl;
+
+  //  cout <<" pos phiS: "<< phiSPos << " neg: "<< phiSNeg << endl;
+  //  cout <<"true pos phiS: "<< truePhiSPos << " neg: "<< truePhiSNeg << endl;
+
+  //  cout <<"pol is : "<< fields.polarization <<endl;
+  
   //  cout <<"true phiS: " << truePhiS <<endl;
   //assume that event vars have been filled before
+  
   fields.numHadronPairs=pairs.size();
   for(int i=0;i<pairs.size();i++)
     {
+      double weight=pairs[i].weight;
+      double unc=pairs[i].weightUncert;
       double truePhiR=pairsTrue[i].phi_R;
+      TVector3 spinVect;
+      //      cout <<"polarizaiton for pair " << i <<" " << pairs[i].polarization<<endl;
+      //      spinVect.SetXYZ(0,pairs[i].polarization,0);
+      //assume always up..
+      spinVect.SetXYZ(0,1.0,0);      
+      float phiS = Tools::PlaneAngle(mQ.Vect(),leptonOut.Vect(),mQ.Vect(),spinVect);
+      float truePhiS = Tools::PlaneAngle(mQTrue.Vect(),leptonOutTrue.Vect(),mQTrue.Vect(),spinVect);
+
+      //  cout <<"sin pos phiS: "<< sin(phiSPos) <<" of sum: "<< sin(phiSPos+pairs[i].phi_R)<<endl;
+      //  cout <<"sin neg phiS: "<< sin(phiSNeg) <<" of sum: "<< sin(phiSNeg+pairs[i].phi_R)<<endl;
+      
       fields.phiR[i]=pairs[i].phi_R;
       fields.phiS[i]=phiS;
       fields.truePhiS[i]=truePhiS;
@@ -126,12 +164,15 @@ void fillTree(TTree* tree, diHadTreeFields& fields,vector<HadronPair>& pairs,con
       fields.theta[i]=pairs[i].m_theta;
       fields.M[i]=pairs[i].M;
       fields.pairType[i]=32;
+      fields.polarization[i]=pairs[i].polarization;
       //      fields.weight[i]=1+weight*fields.polarization*sin(truePhiR+truePhiS);
       //polarization is already taken into account via phiS
       /////      fields.weight[i]=1+weight*sin(truePhiR+truePhiS);
-      fields.weight[i]=1+weight*sin(truePhiR+truePhiS);
-      fields.weightUpperLimit[i]=1+(weight+unc)*fields.polarization*sin(truePhiR+truePhiS);
-      fields.weightLowerLimit[i]=1+(weight-unc)*fields.polarization*sin(truePhiR+truePhiS);
+      ///it is equivalent to either flip the sign in front of the weight, or flip the spin vector according to the polarization (the 'true' spin vector, not the assumed)
+      fields.weight[i]=1+pairs[i].polarization*weight*sin(truePhiR+truePhiS);
+     
+      fields.weightUpperLimit[i]=1+pairs[i].polarization*(weight+unc)*fields.polarization[i]*sin(truePhiR+truePhiS);
+      fields.weightLowerLimit[i]=1+pairs[i].polarization*(weight-unc)*fields.polarization[i]*sin(truePhiR+truePhiS);
     }
   tree->Fill();
 }
@@ -144,9 +185,10 @@ void doBranching(TTree* tree, diHadTreeFields& fields)
   tree->Branch("W",&(fields.W),"W/F");
   tree->Branch("Mx",&(fields.Mx),"Mx/F");
   tree->Branch("evtNr",&(fields.evtNr),"evtNr/I");
-  tree->Branch("polarization",&(fields.polarization),"polarization/I");
+
   
   tree->Branch("numHadronPairs",&(fields.numHadronPairs),"numHadronPairs/I");
+  tree->Branch("polarization",(fields.polarization),"polarization[numHadronPairs]/I");
   tree->Branch("phiR",(fields.phiR),"phiR[numHadronPairs]/F");
   tree->Branch("phiS",(fields.phiS),"phiS[numHadronPairs]/F");
   tree->Branch("truePhiR",(fields.truePhiR),"truePhiR[numHadronPairs]/F");
@@ -167,7 +209,6 @@ void doBranching(TTree* tree, diHadTreeFields& fields)
 
 pair<double,double> getQz(double a, double b, double kappa, double y, double qT2, double Pz, double Pe,double Q2)
 {
-
   double pHalf=1.0/(Pe*Pe*kappa)*(a*y+b)*Pz;
   double q=-qT2/kappa+Q2/kappa+(a*y+b)*(a*y+b)/(Pe*Pe*kappa);
 
@@ -300,8 +341,6 @@ void studyReconstruction(TClonesArray* branchParticles, TClonesArray* branchEFlo
 	  }
       
     }
-
-
 }
 
 
@@ -518,7 +557,6 @@ bool checkSanity(HadronPair& pair)
 
       //      cout <<" nan z1" <<endl;
             sane=false;
-
     }
   if(isnan(pair.z2))
     {
