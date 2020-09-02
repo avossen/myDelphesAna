@@ -1,6 +1,13 @@
 #include "TMath.h"
 #include "classes/DelphesClasses.h"
+#include "fastjet/ClusterSequence.hh"
+#include "fastjet/contrib/Centauro.hh"
 
+using namespace fastjet;
+using namespace std;
+
+
+#define MIN_NEUT_HADRON_E 0.1
 using namespace std;
 const int maxFields=200;
 
@@ -418,10 +425,144 @@ struct boostVars{
 };
 
 
+//HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEFlowTrack, TClonesArray* branchEFlowPhoton, TClonesArray* branchEFlowNeutralHadron, TClonesArray* branchTrack, TClonesArray* branchParticles)
+void getJets(TClonesArray* branchEFlowTrack, TClonesArray* branchTrack, TClonesArray* branchEFlowPhoton, TClonesArray* branchEFlowNeutralHadron, boostVars recBoost, boostVars realBoost, vector<PseudoJet>& jetsRec, vector<PseudoJet>& jetsReal, ClusterSequence* csRec, ClusterSequence* csReal)
+{
+  vector<PseudoJet> particlesRec;
+  vector<PseudoJet> particlesReal;
+  // an event with three particles:   px    py  pz      E
+  //  particles.push_back( PseudoJet(  -99.0,    0,  0,  99.0) );
+
+  for(int i=0;i<branchEFlowTrack->GetEntries();i++)
+    {
+      Track* t=(Track*)branchEFlowTrack->At(i);
+
+      if(fabs(t->Eta)>4.0 || (fabs(t->P)<0.01))
+	{
+	  continue;
+	}
+      TLorentzVector track_mom=t->P4();
+      if(isnan(track_mom.E()))
+	 continue;
+
+      track_mom.Boost(recBoost.breitBoost);
+      particlesRec.push_back(PseudoJet(track_mom.Px(),track_mom.Py(),track_mom.Pz(),track_mom.E()));
+      
+      GenParticle* tp = (GenParticle*) t->Particle.GetObject();
+      TLorentzVector track_momReal=tp->P4();
+      track_momReal.Boost(realBoost.breitBoost);
+      particlesReal.push_back(PseudoJet(track_momReal.Px(),track_momReal.Py(),track_momReal.Pz(),track_momReal.E()));
+
+      ///--->add to jet
+      
+    }
+  //use tracks for eta>4.0 -->should not be the case for 'real' detector
+  for(int i=0;i<branchTrack->GetEntries();i++)
+    {
+      Track* t=(Track*)branchTrack->At(i);
+
+      if(fabs(t->Eta)<4.0 || (fabs(t->P)<0.01))
+	{
+	  continue;
+	}
+      TLorentzVector track_mom=t->P4();
+      if(isnan(track_mom.E()))
+	 continue;
+      track_mom.Boost(recBoost.breitBoost);
+      particlesRec.push_back(PseudoJet(track_mom.Px(),track_mom.Py(),track_mom.Pz(),track_mom.E()));
+
+      GenParticle* tp = (GenParticle*) t->Particle.GetObject();
+      TLorentzVector track_momReal=tp->P4();
+      track_momReal.Boost(realBoost.breitBoost);
+      particlesReal.push_back(PseudoJet(track_momReal.Px(),track_momReal.Py(),track_momReal.Pz(),track_momReal.E()));
+
+
+      //add to jets
+    }
+  
+  for(int i=0;i<branchEFlowPhoton->GetEntries();i++)
+    {
+      Tower* to=(Tower*)branchEFlowPhoton->At(i);
+      if(fabs(to->Eta)>4.0)
+	continue;
+      TLorentzVector ph_mom=to->P4();
+      if(isnan(ph_mom.E()))
+	 continue;
+
+      ph_mom.Boost(recBoost.breitBoost);
+      particlesRec.push_back(PseudoJet(ph_mom.Px(),ph_mom.Py(),ph_mom.Pz(),ph_mom.E()));
+
+
+	  //a tower can have several corresponding generated particles. So loop over all of them
+      for(int j=0;j<to->Particles.GetEntries();j++)
+	{
+	  GenParticle* tp=(GenParticle*) to->Particles.At(j);
+	  //GenParticle* tp = (GenParticle*) t->Particle.GetObject();
+	TLorentzVector  ph_momReal=tp->P4();
+	ph_momReal.Boost(realBoost.breitBoost);
+	  particlesReal.push_back(PseudoJet(ph_momReal.Px(),ph_momReal.Py(),ph_momReal.Pz(),ph_momReal.E()));
+		//		cout <<"found corresponding ecal tower with E: "<< t->E<<endl;
+	}
+
+	  //	  GenParticle* tp = (GenParticle*) to->Particle.GetObject();
+	  //	  ph_mom=tp->P4();
+    
+      //add to jet
+
+    }
+
+  if(branchEFlowNeutralHadron!=0)
+    {    
+      for(int i=0;i<branchEFlowNeutralHadron->GetEntries();i++)
+	{
+	  Tower* nh=(Tower*)branchEFlowNeutralHadron->At(i);
+	  if(fabs(nh->Eta)>4.0)
+	    continue;
+ 
+	  TLorentzVector neutralHadron=nh->P4();
+	  if(isnan(neutralHadron.E()))
+	    continue;
+
+
+	  neutralHadron.Boost(recBoost.breitBoost);
+	  particlesRec.push_back(PseudoJet(neutralHadron.Px(),neutralHadron.Py(),neutralHadron.Pz(),neutralHadron.E()));
+
+	  
+	  //since we removed the min E from the card, need to do it here...
+	  if(neutralHadron.E()<MIN_NEUT_HADRON_E)
+	    continue;
+	  for(int j=0;j<nh->Particles.GetEntries();j++)
+	    {
+	      GenParticle* tp=(GenParticle*) nh->Particles.At(j);
+	      //	      nh->Particles.At(j);
+	      //	      GenParticle* tp = (GenParticle*) nh->Particle.GetObject();
+	      TLorentzVector nh_momReal=tp->P4();
+	      nh_momReal.Boost(realBoost.breitBoost);
+	      particlesReal.push_back(PseudoJet(nh_momReal.Px(),nh_momReal.Py(),nh_momReal.Pz(),nh_momReal.E()));
+	      //		cout <<"found corresponding ecal tower with E: "<< t->E<<endl;
+	    }
+
+	}
+    }
+
+
+    // choose a jet definition
+  double R = 1.0;
+  //JetDefinition jet_def(antikt_algorithm, R);
+  contrib::CentauroPlugin centPlugin(R);
+  JetDefinition jet_def(&centPlugin);
+  // run the clustering, extract the jets
+  csRec =new ClusterSequence(particlesRec, jet_def);
+  jetsRec = sorted_by_pt(csRec->inclusive_jets());
+
+  csReal=new ClusterSequence(particlesReal, jet_def);
+  jetsReal = sorted_by_pt(csReal->inclusive_jets());
+
+}
+
+
 void getHadronPairs(vector<HadronPair>& pairsRec, vector<HadronPair>& pairsTrue,TClonesArray* branchTracks, boostVars recBoost, boostVars realBoost, double targetPz, bool useMatchedTruth, bool useGen, bool useNoAcc)
   {
-
-
     
     //      for(int i=6;i<branchParticles->GetEntries();i++)
     //    {
@@ -630,7 +771,6 @@ HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEF
   //use tracks for eta>4.0
   for(int i=0;i<branchTrack->GetEntries();i++)
     {
-
       if(suppWithTruth||noTruthNoTrack)
 	continue;
       Track* t=(Track*)branchTrack->At(i);
@@ -680,6 +820,9 @@ HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEF
  
 	  TLorentzVector neutralHadron=nh->P4();
 	  if(isnan(neutralHadron.E()))
+	    continue;
+	  //since we removed the min E from the card, need to do it here...
+	  if(neutralHadron.E()<MIN_NEUT_HADRON_E)
 	    continue;
 
 	  if(useTruth)
@@ -762,6 +905,7 @@ Kins getKinsJB(HadronicVars v, double beamEnergy, double hadronBeamEnergy,double
     }
   return ret;
 }
+
 Kins getKinsDA(double scatElPx,double scatElPy,double scatElPz, double scatElectronEnergy,double beamEnergy,double tP, double s)
 {
   Kins ret;

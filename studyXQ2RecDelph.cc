@@ -11,6 +11,10 @@
 #include <fstream>
 #include <cstdlib>
 #include <set>
+#include "fastjet/ClusterSequence.hh"
+#include "fastjet/contrib/Centauro.hh"
+
+using namespace fastjet;
 using namespace std;
 #include "AUTweight.h"
 //#include "studyPIDs.h"
@@ -30,16 +34,16 @@ using namespace std;
 
 #include "studyXQ2RecDelph.h"
 
-
-
 enum RecType{elec, hadronic, da, mixed, mostlyLepton, truth,gen, genNoAcc,recTypeEnd};
 //  int colors[]={kRed,kBlue,kGreen,kBlack,kCyan,kMagenta,kOrange,kYellow};
 string recTypeNames[]={"elec","hadronic","da","mixed","mostlyLepton","trueBoost","generatedWAcc","generatedWOAcc"};
 class ExRootTreeReader;
 class ExRootResult;
-const int corrBinsX=20;
+const int corrBinsX=30;
 const int corrBinsQ2=10;
 
+const int corrBinsXLin=10;
+const int corrBinsQ2Lin=10;
 
 
 
@@ -62,6 +66,14 @@ struct TestPlots
   TH2* Q2VsXSmearJB;
   TH2* Q2VsXSmearMixed;
   TH2* Q2VsXSmearNorm;
+
+
+  TH2* Q2VsXSmearLinear;
+  TH2* Q2VsXSmearDALinear;
+  TH2* Q2VsXSmearJBLinear;
+  TH2* Q2VsXSmearMixedLinear;
+  TH2* Q2VsXSmearNormLinear;
+  
   TH2* corrConventionalQ2;
   TH2* corrConventionalX;
 
@@ -97,9 +109,14 @@ struct TestPlots
 
   TH1*** phiRHistos[8];
   TH1*** pTHistos[8];
-  
+
+  TH1*** jetDiff[8];
+  TH1*** jetEDiff[8];
+    
   vector<float> zBins;
   vector<float> yBins;
+
+  vector<float> ptBins;
 };
 
 
@@ -129,6 +146,16 @@ void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int 
   plots->Q2VsXSmearNorm=result->AddHist2D("Q2VsXSmearNorm",buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
 
 
+  plots->Q2VsXSmearLinear=result->AddHist2D("Q2VsXSmearLinear",buffer,"x","Q^{2}",corrBinsXLin,0.01,1,corrBinsQ2,0.5,10000,1,1);
+  plots->Q2VsXSmearDALinear=result->AddHist2D("Q2VsXSmearDALinear",buffer,"x","Q^{2}",corrBinsXLin,0.01,1,corrBinsQ2,0.5,10000,1,1);
+  plots->Q2VsXSmearJBLinear=result->AddHist2D("Q2VsXSmearJBLinear",buffer,"x","Q^{2}",corrBinsXLin,0.01,1,corrBinsQ2,0.5,10000,1,1);
+  plots->Q2VsXSmearMixedLinear=result->AddHist2D("Q2VsXSmearMixedLinear",buffer,"x","Q^{2}",corrBinsXLin,0.01,1,corrBinsQ2,0.5,10000,1,1);
+  plots->Q2VsXSmearNormLinear=result->AddHist2D("Q2VsXSmearNormLinear",buffer,"x","Q^{2}",corrBinsXLin,0.01,1,corrBinsQ2,0.5,10000,1,1);
+
+
+
+
+  
 
   for(int i=0;i<recTypeEnd;i++)
     {
@@ -136,11 +163,35 @@ void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int 
       plots->diHadTrees[i]=new TTree(buffer,buffer);
       doBranching(plots->diHadTrees[i],plots->treeFields[i]);
     }
+
+
+    for(int i=0;i<recTypeEnd;i++)
+      {
+	plots->jetDiff[i]=new TH1**[plots->ptBins.size()];
+	plots->jetEDiff[i]=new TH1**[plots->ptBins.size()];
+	
+	for(int j=0;j<plots->ptBins.size();j++)
+	  {
+	    plots->jetDiff[i][j]=new TH1*[plots->yBins.size()];
+	    plots->jetEDiff[i][j]=new TH1*[plots->yBins.size()];
+	    
+	    for(int k=0;k<plots->yBins.size();k++)
+	      {
+		sprintf(buffer,"jetDiff_%s_ptBin_%d_yBin_%d",recTypeNames[i].c_str(),j,k);
+		plots->jetDiff[i][j][k]=result->AddHist1D(buffer,buffer,"jetDiff","counts",30,0,1.0);
+		sprintf(buffer,"jetEDiff_%s_ptBin_%d_yBin_%d",recTypeNames[i].c_str(),j,k);
+		plots->jetEDiff[i][j][k]=result->AddHist1D(buffer,buffer,"jetEDiff","counts",30,0,4.0);
+	      }
+	  }
+      }
+
   
   for(int i=0;i<recTypeEnd;i++)
     {
       plots->phiRHistos[i]=new TH1**[plots->zBins.size()];
       plots->pTHistos[i]=new TH1**[plots->zBins.size()];
+
+
       for(int j=0;j<plots->zBins.size();j++)
 	{
 	  plots->phiRHistos[i][j]=new TH1*[plots->yBins.size()];
@@ -151,7 +202,6 @@ void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int 
 	      plots->phiRHistos[i][j][k]=result->AddHist1D(buffer,buffer,"phi_R","counts",30,0,2*TMath::Pi());
 	      sprintf(buffer,"pT_%s_zBin_%d_yBin_%d",recTypeNames[i].c_str(),j,k);
 	      plots->pTHistos[i][j][k]=result->AddHist1D(buffer,buffer,"phi_R","counts",30,0,2*TMath::Pi());
-
 	    }
 	  
 	}
@@ -218,6 +268,14 @@ void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int 
   BinLog(plots->Q2VsXSmearDA->GetYaxis());
   BinLog(plots->Q2VsXSmearJB->GetYaxis());
   BinLog(plots->Q2VsXSmearNorm->GetYaxis());
+
+
+  BinLog(plots->Q2VsXSmearMixedLinear->GetYaxis());
+  BinLog(plots->Q2VsXSmearLinear->GetYaxis());
+  BinLog(plots->Q2VsXSmearDALinear->GetYaxis());
+  BinLog(plots->Q2VsXSmearJBLinear->GetYaxis());
+  BinLog(plots->Q2VsXSmearNormLinear->GetYaxis());
+
   //  BinLog(plots->Q2VsXSmearEt->GetYaxis());
   //  BinLog(plots->Q2VsXSmearNormEt->GetYaxis());
 
@@ -331,6 +389,9 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
   float logQ2Range=4.3; //for 0.5 to 10k
   float logXRange=4;
 
+  float linQ2Range=9990;
+  float linXRange=0.99;
+
   TClonesArray *branchEvent=treeReader->UseBranch("Event");
   TClonesArray *branchParticle = treeReader->UseBranch("Particle");
   TClonesArray *branchElectron = treeReader->UseBranch("Electron");
@@ -373,7 +434,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
       if(entry/(double)allEntries>0.05)
 	{
-	  //break;
+	  //	  break;
 	}
       treeReader->ReadEntry(entry);
 
@@ -765,6 +826,51 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  recBoost.W=W[i];
 	  recBoost.lv_q=q[i];
 	  recBoost.lv_l=pleptonIn;
+	  vector<PseudoJet> jetsRec;
+	  vector<PseudoJet> jetsReal;
+	  ////-----
+	  ClusterSequence* csRec;
+	  ClusterSequence* csReal;
+	  getJets(branchEFlowTrack, branchTrack,  branchEFlowPhoton, branchEFlowNeutralHadron, recBoost, realBoost, jetsRec,  jetsReal,  csRec,  csReal);
+	  ////---
+	  //	  cout <<"recType: " << recTypeNames[i] <<", we found " << jetsRec.size() <<" real: "<< jetsReal.size()<<endl;
+	    for (unsigned i = 0; i < jetsRec.size(); i++) {
+	      //	      cout << "jet Rec" << i << ":pt "<< jetsRec[i].pt() << ", rap " << jetsRec[i].rap() << ", phi " << jetsRec[i].phi() << endl;
+	      //	      vector<PseudoJet> constituents = jetsRec[i].constituents();
+	      
+	    }
+	    for (unsigned i = 0; i < jetsReal.size(); i++) {
+	      //	      cout << "jet Real" << i << ":pt "<< jetsReal[i].pt() << ", rap "                    << jetsReal[i].rap() << ", phi " << jetsReal[i].phi() << endl;
+	      //	      vector<PseudoJet> constituents = jetsReal[i].constituents();
+	    }
+	    if(jetsRec.size()>0 && jetsReal.size()>0)
+	      {
+		float rapReal=jetsReal[0].rap();
+		float rapRec=jetsRec[0].rap();
+		float phiReal=jetsReal[0].phi();
+		float phiRec=jetsRec[0].phi();
+		float jetDist=sqrt((rapReal-rapRec)*(rapReal-rapRec)+(phiReal-phiRec)*(phiReal-phiRec));
+
+		
+		
+		if(jetDist<1.0)
+		  {
+		    float ptReal=jetsReal[0].pt();
+		    float ptRec=jetsRec[0].pt();
+		    int yBin=getBin(plots->yBins,y);
+		    int ptBin=getBin(plots->ptBins,ptReal);
+		    if(ptBin>=0)
+		      {
+			plots->jetDiff[i][ptBin][yBin]->Fill(jetDist);
+			plots->jetEDiff[i][ptBin][yBin]->Fill(ptReal-ptRec);
+		      }
+		  }
+	      }
+
+	    
+	    delete csRec;
+	    delete csReal;
+	    
 	  if(W[i]*W[i]<W2Cut)
 	    continue;
 	  switch(i)
@@ -918,7 +1024,13 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       //      cout <<" reconstructed DA x " << kinDASmeared.x <<" Q2: "<< kinDASmeared.Q2 <<endl;
       //      cout <<" reconstructed mixed x " << mixedXSmeared <<endl;
       plots->Q2VsXSmearNorm->Fill(kinOrig.x,kinOrig.Q2);
-      
+      plots->Q2VsXSmearNormLinear->Fill(kinOrig.x,kinOrig.Q2);
+
+
+      if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBinsQ2)  && fabs(kinSmeared.x-kinOrig.x)< linXRange/(2*corrBinsXLin))
+	{
+	  plots->Q2VsXSmearLinear->Fill(kinOrig.x,kinOrig.Q2);
+	}
       if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBinsQ2) && fabs(binlogOrigX-binRecX)<logXRange/(2*corrBinsX))
 	{
 	  plots->Q2VsXSmear->Fill(kinOrig.x,kinOrig.Q2);
@@ -926,6 +1038,14 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       binRecQ2=log10(kinDASmeared.Q2);
       binRecX=log10(kinDASmeared.x);
       
+
+
+
+      if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBinsQ2)   && fabs(kinDASmeared.x-kinOrig.x)< linXRange/(2*corrBinsXLin))
+	{
+	  plots->Q2VsXSmearDALinear->Fill(kinOrig.x,kinOrig.Q2);
+	}
+
       if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBinsQ2) && fabs(binlogOrigX-binRecX)<logXRange/(2*corrBinsX))
 	{
 	  plots->Q2VsXSmearDA->Fill(kinOrig.x,kinOrig.Q2);
@@ -934,6 +1054,13 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       binRecQ2=log10(kinJBSmeared.Q2);
       binRecX=log10(kinJBSmeared.x);
       //      cout <<"jb q2: "<< kinJBSmeared.Q2 <<" x: "<< kinJBSmeared.x <<" log q2: "<< binRecQ2 <<" log x: "<< binRecX << " binlogOrig: " << binlogOrigQ2 <<" x: "<< binlogOrigX <<endl;
+
+      
+      if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBinsQ2)  && fabs(kinJBSmeared.x-kinOrig.x)< linXRange/(2*corrBinsXLin))
+	{
+	  plots->Q2VsXSmearJBLinear->Fill(kinOrig.x,kinOrig.Q2);
+	}
+      
       if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBinsQ2) && fabs(binlogOrigX-binRecX)<logXRange/(2*corrBinsX))
 	{
 	  //	  cout <<" in bin " <<endl;
@@ -945,6 +1072,13 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	}
       binRecQ2=log10(kinSmeared.Q2);
       binRecX=log10(mixedXSmeared);
+
+      
+      if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBinsQ2)  && fabs(mixedXSmeared-kinOrig.x)< linXRange/(2*corrBinsXLin))
+	{
+	  plots->Q2VsXSmearMixedLinear->Fill(kinOrig.x,kinOrig.Q2);
+	}
+
       if(fabs(binlogOrigQ2-binRecQ2)<logQ2Range/(2*corrBinsQ2) && fabs(binlogOrigX-binRecX)<logXRange/(2*corrBinsX))
 	{
 	  plots->Q2VsXSmearMixed->Fill(kinOrig.x,kinOrig.Q2);
@@ -988,6 +1122,46 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
 int main(int argc, char** argv)
 {
+
+
+
+
+  vector<PseudoJet> particles;
+  // an event with three particles:   px    py  pz      E
+  particles.push_back( PseudoJet(   99.0,  0.1,  0, 100.0) ); 
+  particles.push_back( PseudoJet(    4.0, -0.1,  0,   5.0) ); 
+  particles.push_back( PseudoJet(  -99.0,    0,  0,  99.0) );
+
+  // choose a jet definition
+  double R = 0.7;
+  //  JetDefinition jet_def(antikt_algorithm, R);
+  contrib::CentauroPlugin centPlugin(R);
+  JetDefinition jet_def(&centPlugin);
+  // run the clustering, extract the jets
+  ClusterSequence cs(particles, jet_def);
+  vector<PseudoJet> jets = sorted_by_pt(cs.inclusive_jets());
+
+  // print out some infos
+  cout << "Clustering with " << jet_def.description() << endl;
+
+  // print the jets
+  cout <<   "        pt y phi" << endl;
+  for (unsigned i = 0; i < jets.size(); i++) {
+    cout << "jet " << i << ": "<< jets[i].pt() << " " 
+                   << jets[i].rap() << " " << jets[i].phi() << endl;
+    vector<PseudoJet> constituents = jets[i].constituents();
+    for (unsigned j = 0; j < constituents.size(); j++) {
+      cout << "    constituent " << j << "'s pt: " << constituents[j].pt()
+           << endl;
+    }
+  }
+
+
+
+  //  -----
+
+
+  
   srand(time(NULL));
 
   m_weights=new AUTweight();
@@ -1045,6 +1219,12 @@ int main(int argc, char** argv)
   ExRootResult *result = new ExRootResult();
 
   TestPlots *plots = new TestPlots;
+
+
+  plots->ptBins.push_back(4);
+  plots->ptBins.push_back(6);
+  plots->ptBins.push_back(8);
+  plots->ptBins.push_back(50);
   
   plots->zBins.push_back(0.2);
   plots->zBins.push_back(0.3);
@@ -1066,14 +1246,22 @@ int main(int argc, char** argv)
   plots->Q2VsXSmearDA->Divide(plots->Q2VsXSmearNorm);
   plots->Q2VsXSmearMixed->Divide(plots->Q2VsXSmearNorm);
   plots->Q2VsXSmearJB->Divide(plots->Q2VsXSmearNorm);
+
+  plots->Q2VsXSmearLinear->Divide(plots->Q2VsXSmearNormLinear);
+  plots->Q2VsXSmearDALinear->Divide(plots->Q2VsXSmearNormLinear);
+  plots->Q2VsXSmearMixedLinear->Divide(plots->Q2VsXSmearNormLinear);
+  plots->Q2VsXSmearJBLinear->Divide(plots->Q2VsXSmearNormLinear);
+
   cout <<"plotting... "<<endl;  
   TCanvas c1;
   plots->angCorr->Draw("colz");
   
   c1.SetLogy();
   c1.SetLogx();
-  //  cout <<"first... "<<endl;  
+    cout <<"first... "<<endl;  
 
+
+  
   plots->Q2VsXSmear->SetMaximum(1.0);
   plots->Q2VsXSmear->SetMinimum(0.0);
   
@@ -1086,6 +1274,20 @@ int main(int argc, char** argv)
   plots->Q2VsXSmearDA->SetMinimum(0.0);
   plots->Q2VsXSmearMixed->SetMaximum(1.0);
   plots->Q2VsXSmearMixed->SetMinimum(0.0);
+
+
+  plots->Q2VsXSmearLinear->SetMaximum(1.0);
+  plots->Q2VsXSmearLinear->SetMinimum(0.0);
+  
+  plots->Q2VsXSmearDALinear->SetMaximum(1.0);
+  plots->Q2VsXSmearDALinear->SetMinimum(0.0);
+
+  plots->Q2VsXSmearJBLinear->SetMaximum(1.0);
+  plots->Q2VsXSmearJBLinear->SetMinimum(0.0);
+  plots->Q2VsXSmearDALinear->SetMaximum(1.0);
+  plots->Q2VsXSmearDALinear->SetMinimum(0.0);
+  plots->Q2VsXSmearMixedLinear->SetMaximum(1.0);
+  plots->Q2VsXSmearMixedLinear->SetMinimum(0.0);
 
   cout <<"test1 " << endl;
   cout <<plots->phiRHistos[0][0][0]->GetMaximum()<<endl;
@@ -1191,6 +1393,7 @@ int main(int argc, char** argv)
 	sprintf(buffer,"phiRDists_yBin_%d_%d_%d.root",j,beamEnergyI,hadronBeamEnergyI);
 	c1.SaveAs(buffer);
 
+	
 	///---
 	for(int k=0;k<plots->zBins.size();k++)
 	  {
@@ -1235,7 +1438,55 @@ int main(int argc, char** argv)
 	c1.SaveAs(buffer);
 	sprintf(buffer,"pTDists_yBin_%d_%d_%d.root",j,beamEnergyI,hadronBeamEnergyI);
 	c1.SaveAs(buffer);	
+    
+	
+	///---
+	for(int k=0;k<plots->ptBins.size();k++)
+	  {
+	    c1.cd(k+1);
+	    for(int i=0;i<recTypeEnd;i++)
+	      {
+		cout <<"trying to plot i: "<< i <<" j : " << j << " k: "<< k <<endl;
+		plots->jetDiff[i][k][j]->SetMarkerColor(colors[i]);
+		plots->jetDiff[i][k][j]->SetLineColor(colors[i]);
+		plots->jetDiff[i][k][j]->SetMarkerStyle(markerStyles[i]);
+		if(i==0)
+		  plots->jetDiff[i][k][j]->Draw("P");
+		else
+		  plots->jetDiff[i][k][j]->Draw("SAME P");
+		
+		//save them individually
+		/*	      c1.cd(0);
+			      plots->pTHistos[i][k][j]->Draw();
+			      sprintf(buffer,"allPhiRHistos/pT_%s_zBin%d_yBin%d.png",recTypeNames[i].c_str(),k,j);
+			      c1.SaveAs(buffer);
+			      cout <<"done " <<endl;*/
+	      }
+	  }
+	auto legendJet=new TLegend(0,0,1.0,1,0);
+	
+	for(int i=0;i<recTypeEnd;i++)
+	  {
+	    legendpt->AddEntry(plots->jetDiff[i][0][j],recTypeNames[i].c_str(),"p");
+	    
+	    TH1* histo=(TH1*)gDirectory->Get(plots->jetDiff[i][0][j]->GetName());
+	    cout <<" pull name for legend: " << plots->jetDiff[i][0][j]->GetName() <<endl;
+	    cout <<"color for marker: "<< plots->jetDiff[i][0][j]->GetMarkerColor()<<endl;;
+	    cout <<" or " << histo->GetMarkerColor()<<endl;
+	    
+	    cout <<"style for marker: "<< plots->jetDiff[i][0][j]->GetMarkerStyle()<<endl;
+	    cout <<" or " << histo->GetMarkerStyle()<<endl;
+	  }
+	c1.cd(plots->ptBins.size()+1);
+	legendJet->Draw();
+	legendJet->Draw();
+	sprintf(buffer,"jetDists_yBin_%d_%d_%d.png",j,beamEnergyI,hadronBeamEnergyI);
+	c1.SaveAs(buffer);
+	sprintf(buffer,"jetDists_yBin_%d_%d_%d.root",j,beamEnergyI,hadronBeamEnergyI);
+	c1.SaveAs(buffer);	
     }
+
+//---  
   c1.SetLogy();
   c1.SetLogx();
 
@@ -1331,6 +1582,39 @@ int main(int argc, char** argv)
   sprintf(buffer,"Q2VsXSmear_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
   c1.SaveAs(buffer);
 
+
+  c1.SetLogx(false);
+  //  c1.SetLogy(false);
+  
+  plots->Q2VsXSmearDALinear->Draw("colz");
+  drawYContour(0.01,beamEnergy,hadronBeamEnergy);
+  drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+  sprintf(buffer,"Q2VsXSmearDALinear_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+  
+  plots->Q2VsXSmearJBLinear->Draw("colz");
+  drawYContour(0.01,beamEnergy,hadronBeamEnergy);
+  drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+
+  sprintf(buffer,"Q2VsXSmearJBLinear_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+  plots->Q2VsXSmearMixedLinear->Draw("colz");
+  drawYContour(0.01,beamEnergy,hadronBeamEnergy);
+  drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+
+  sprintf(buffer,"Q2VsXSmearMixedLinear_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+  plots->Q2VsXSmearLinear->Draw("colz");
+  drawYContour(0.01,beamEnergy,hadronBeamEnergy);
+  drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+
+  sprintf(buffer,"Q2VsXSmearLinear_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+
+
+
+  c1.SetLogx();
+  c1.SetLogy();
   c1.SetLogz();  
   cout <<" print histo: " << endl;
   PrintHistograms(result, plots);

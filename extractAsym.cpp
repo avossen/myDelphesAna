@@ -101,17 +101,29 @@ int main(int argc, char** argv)
   
   xBins.push_back(0.15);
   xBins.push_back(0.2);
+    xBins.push_back(0.25);
+        xBins.push_back(0.3);
   xBins.push_back(0.35);
+  xBins.push_back(0.45);
+    xBins.push_back(0.6);
+
   xBins.push_back(50.0);
 
   zBins.push_back(0.3);
+    zBins.push_back(0.35);
   zBins.push_back(0.4);
+    zBins.push_back(0.45);
   zBins.push_back(0.5);
+    zBins.push_back(0.6);
   zBins.push_back(100.0);
-
+  
+  mBins.push_back(0.3);
   mBins.push_back(0.5);
+    mBins.push_back(0.6);
   mBins.push_back(0.7);
+    mBins.push_back(0.8);
   mBins.push_back(0.9);
+    mBins.push_back(1.2);
   mBins.push_back(200.0);
 
 
@@ -450,13 +462,16 @@ int main(int argc, char** argv)
 	  //	    {
 	  //	      g->Draw("SAME P");
 	  //	    }
-	  gBounds->Draw("SAME E");
-	  //redraw on top
+	  if(i==gen)
 	    {
-
-	      g->Draw("SAME P");
+	      gBounds->Draw("SAME E");
 	    }
-
+	      //redraw on top
+	      {
+		
+		g->Draw("SAME P");
+	      }
+	    
 	  //	        sprintf(buffer,"amps_binning_%s_recType_%s.png",binningNames[binning].c_str(),recTypeNames[i].c_str());
 	}
       TLine *line = new TLine(0,0,maxX,0);
