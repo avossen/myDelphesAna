@@ -50,18 +50,14 @@ int main(int argc, char** argv)
       cout <<"need to supply input file " <<endl;
       exit(0);
     }
-  TFile mFile(argv[1]);
-  TTree* mTrees[8];
 
 
-  for(int i=0;i<recTypeEnd;i++)
-    {
-      sprintf(buffer,"tree_%s",recTypeNames[i].c_str());
-      mTrees[i]=(TTree*)mFile.Get(buffer);
-      if(mTrees[i]==0)
-	cout <<" didn't load " << buffer <<endl;
-    }
-  
+
+  char* listfile=argv[1];
+  ifstream fListFile(listfile);
+  string line;
+
+
   diHadTreeFields treeFields[8];
 
   int treeIndex=0;
@@ -70,11 +66,30 @@ int main(int argc, char** argv)
   //  double countsUpper[8][4][10][16][2];
   //  double countsLower[8][4][10][16][2];
 
+  int numXBins=10;
+  int numQ2Bins=10;
+  int numZBins=10;
+  int numMBins=10;
+  
   //this also sets them to zero and can be dynamic
   double***** counts=allocateArray<double>(8,4,10,16,2);
   double***** countsUpper=allocateArray<double>(8,4,10,16,2);
   double***** countsLower=allocateArray<double>(8,4,10,16,2);
 
+  //let's do this just for the electrons
+  double****** countsAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins,16,2);
+  double****** countsUpperAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins,16,2);
+  double****** countsLowerAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins,16,2);
+
+  double **** asymAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+  double **** asymErrAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+  double **** asymUpperAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+  double **** asymLowerAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+
+  enum kinBin{kinBinQ2,kinBinX,kinBinZ,kinBinM,kinBinEnd};
+  double ***** kinMeansAll=allocateArray<double>(4,numQ2Bins,numXBins,numZBins,numMBins);
+  double ***** kinCountsAll=allocateArray<double>(4,numQ2Bins,numXBins,numZBins,numMBins);
+  
 
   double*** kinMeans=allocateArray<double>(8,4,10);
   double*** kinCounts=allocateArray<double>(8,4,10);
@@ -86,7 +101,8 @@ int main(int argc, char** argv)
   const int xBinning=0;
   const int zBinning=1;
   const int mBinning=2;
-  
+
+  vector<float> Q2Bins;
   vector<float> xBins;
   vector<float> zBins;
   vector<float> mBins;
@@ -98,6 +114,12 @@ int main(int argc, char** argv)
       float bin=(i+1)*2*TMath::Pi()/numPhiBins;
       phiBins.push_back(bin);
     }
+
+
+  Q2Bins.push_back(10);
+  Q2Bins.push_back(50);
+  Q2Bins.push_back(100);
+  Q2Bins.push_back(1000000);
   
   xBins.push_back(0.15);
   xBins.push_back(0.2);
@@ -127,85 +149,126 @@ int main(int argc, char** argv)
   mBins.push_back(200.0);
 
 
-  
-  for(int i=0;i<recTypeEnd;i++)
+
+
+  ///---
+  //    vector<string> vNoISRFilenames;
+  //   char* listfile=argv[1];
+  //  ifstream fListFile(listfile);
+  //  string line;
+
+  while(getline(fListFile,line))
     {
-      treeIndex=i;
-      sprintf(buffer,"tree_%s",recTypeNames[i].c_str());
-      //      cout <<"setting branching addresse" <<endl;
-      setBranchAddresses(mTrees[treeIndex],treeFields[treeIndex]);
-      //      cout <<"done " <<endl;
+      //get filename, upper and lower Q2 cut, weight
+      auto iss=istringstream(line);
+      auto str=std::string();
+      int minQ2=0;
+      int maxQ2=0;
+      double weightFile=0;
+      iss>> str >> minQ2 >> maxQ2 >> weightFile;
+      cout <<"reading: " << str << " minQ2: " << minQ2 <<" maxQ2 " << maxQ2 <<" weight: " << weightFile <<endl;
 
-
-      long numEntries=mTrees[treeIndex]->GetEntries();
-      //      cout <<"we have " << numEntries << " entries " <<endl;
-      cout <<"getting " << numEntries <<" for recTypeName " << recTypeNames[i]<<endl;
-      for(int ie=0;ie<numEntries;ie++)
+      
+  
+      //      TFile mFile(argv[1]);
+      TFile mFile(str.c_str());
+      TTree* mTrees[8];
+      
+      for(int i=0;i<recTypeEnd;i++)
 	{
-	  mTrees[treeIndex]->GetEntry(ie);
+	  sprintf(buffer,"tree_%s",recTypeNames[i].c_str());
+	  mTrees[i]=(TTree*)mFile.Get(buffer);
+	  if(mTrees[i]==0)
+	    cout <<" didn't load " << buffer <<endl;
+	}
 
-
-	  int xBin=getBin(xBins,treeFields[treeIndex].x);
-	  if(treeFields[treeIndex].x<0.0)
-	    {
-	      continue;
-	    }
-	  if(treeFields[treeIndex].x>1.0)
-	    {
-	      continue;
-	   }
+      
+      for(int i=0;i<recTypeEnd;i++)
+	{
+	  bool isElecMethod=false;
+	  if(i==0)
+	isElecMethod=true;	
+	  treeIndex=i;
+	  sprintf(buffer,"tree_%s",recTypeNames[i].c_str());
+	  //      cout <<"setting branching addresse" <<endl;
+	  setBranchAddresses(mTrees[treeIndex],treeFields[treeIndex]);
+	  //      cout <<"done " <<endl;
 	  
-
-
-
-	  //some temporary event cuts
-	  if(treeFields[treeIndex].x<0.05)
+	  
+	  long numEntries=mTrees[treeIndex]->GetEntries();
+      //      cout <<"we have " << numEntries << " entries " <<endl;
+	  cout <<"getting " << numEntries <<" for recTypeName " << recTypeNames[i]<<endl;
+	  for(int ie=0;ie<numEntries;ie++)
 	    {
-	      continue;
-	    }
-	  if(treeFields[treeIndex].y>0.1)
-	      {
-		continue;
-	      }
-	
+	      mTrees[treeIndex]->GetEntry(ie);
+	      
+	      double Q2=treeFields[treeIndex].Q2;
+	      double x=treeFields[treeIndex].x;
 
+	      //needed to incorporate files with different Q2 ranges
+	      if(Q2< minQ2 || Q2> maxQ2)
+		continue;
+	      
+	      int Q2Bin=getBin(Q2Bins,Q2);
+	      int xBin=getBin(xBins,x);
+	      if(treeFields[treeIndex].x<0.0)
+		{
+		  continue;
+		}
+	      if(treeFields[treeIndex].x>1.0)
+		{
+		  continue;
+		}
+	      
+	      
+
+
+	      //some temporary event cuts
+	      if(treeFields[treeIndex].x<0.05)
+		{
+		  //	      continue;
+		}
+	      if(treeFields[treeIndex].y>0.1)
+		{
+		  //		continue;
+		}
+	
+	      
 	  //	  cout <<"x: "<< treeFields[treeIndex].x <<" bin: " << xBin<<endl;
 	  //	  cout <<"looking at " << treeFields[treeIndex].numHadronPairs<<" pairs " <<endl;
 
-	  for(int iPair=0;iPair<treeFields[treeIndex].numHadronPairs;iPair++)
-	    {
-	      int polIndex=0;
-	      if(treeFields[treeIndex].polarization[iPair]>0)
+	      for(int iPair=0;iPair<treeFields[treeIndex].numHadronPairs;iPair++)
 		{
-		  polIndex=1;
-		}
+		  int polIndex=0;
+		  double z=treeFields[treeIndex].z[iPair];
+		  double M=treeFields[treeIndex].M[iPair];
 
-	      diHadTreeFields* fields=&(treeFields[treeIndex]);
-	      if(treeIndex==elec)
-		{
-		  //		  cout <<" elec true phiR: "<< fields->truePhiR[iPair] <<" rec: "<< fields->phiR[iPair] << " true phiS: "<< fields->truePhiS[iPair] <<" rec: " << fields->phiS[iPair] <<endl;
-		}
+		  if(treeFields[treeIndex].polarization[iPair]>0)
+		    {
+		      polIndex=1;
+		    }
 
-
-	      if(isnan(treeFields[treeIndex].weight[iPair]))
-		continue;
-	      if(isnan(treeFields[treeIndex].weightUpperLimit[iPair]))
-		continue;
-	      //model not valid below 0.2
-	      if(treeFields[treeIndex].z[iPair]<0.2)
-		continue;
+		  diHadTreeFields* fields=&(treeFields[treeIndex]);
+		  
+		  if(isnan(treeFields[treeIndex].weight[iPair]))
+		    continue;
+		  if(isnan(treeFields[treeIndex].weightUpperLimit[iPair]))
+		    continue;
+		  //model not valid below 0.2
+		  if(treeFields[treeIndex].z[iPair]<0.2)
+		    continue;
+		  
+		  if(treeFields[treeIndex].z[iPair]>1.0)
+		    continue;
+		  if(treeFields[treeIndex].M[iPair]>3.0)
+		    continue;
+		  if(treeFields[treeIndex].M[iPair]<0.1)
+		    continue;
 	      
-	      if(treeFields[treeIndex].z[iPair]>1.0)
-		continue;
-	      if(treeFields[treeIndex].M[iPair]>3.0)
-		continue;
-	      if(treeFields[treeIndex].M[iPair]<0.1)
-		continue;
-	      
-	      int zBin=getBin(zBins,treeFields[treeIndex].z[iPair]);
-	      int mBin=getBin(mBins,treeFields[treeIndex].M[iPair]);
-	      float ang=treeFields[treeIndex].phiR[iPair]+treeFields[treeIndex].phiS[iPair];
-	      //	      float ang=treeFields[treeIndex].phiR[iPair];
+		  int zBin=getBin(zBins,treeFields[treeIndex].z[iPair]);
+		  int mBin=getBin(mBins,treeFields[treeIndex].M[iPair]);
+		  float ang=treeFields[treeIndex].phiR[iPair]+treeFields[treeIndex].phiS[iPair];
+		  //	      float ang=treeFields[treeIndex].phiR[iPair];
 	      //	      	      	      float ang=treeFields[treeIndex].phiS[iPair];
 	      //	      cout <<"phiS: "<< ang <<endl;
 
@@ -213,131 +276,205 @@ int main(int argc, char** argv)
 	      //	      cout <<" M: " << treeFields[treeIndex].M[iPair] <<endl;
 	      
 	      //	      cout <<"1" <<endl;
-	      while(ang>2*TMath::Pi())
-		{
-		  ang-=(2*TMath::Pi());
-		}
-	      while(ang<0)
-		{
-		  ang+=(2*TMath::Pi());
-		}
+		  while(ang>2*TMath::Pi())
+		    {
+		      ang-=(2*TMath::Pi());
+		    }
+		  while(ang<0)
+		    {
+		      ang+=(2*TMath::Pi());
+		    }
 	      //	      cout <<" weight: "<< treeFields[treeIndex].weight[iPair] <<" upper: " << treeFields[treeIndex].weightUpperLimit[iPair] <<" lower: "<< treeFields[treeIndex].weightLowerLimit[iPair]<<endl;
 
-	      if(isnan(ang))
-		continue;
-	      int phiBin=getBin(phiBins,ang);
-	      
-	      float weight=treeFields[treeIndex].weight[iPair];
-	      
+		  if(isnan(ang))
+		    continue;
+		  int phiBin=getBin(phiBins,ang);
+		  
+		  float weight=treeFields[treeIndex].weight[iPair];
+		  
 	      //	      weight=1.0;
 	      //	      cout <<"2" <<endl;
-	      kinMeans[i][xBinning][xBin]+=(weight*treeFields[treeIndex].x);
-	      kinMeans[i][mBinning][mBin]+=(weight*treeFields[treeIndex].M[iPair]);
-	      kinMeans[i][zBinning][zBin]+=(weight*treeFields[treeIndex].z[iPair]);
+		  kinMeans[i][xBinning][xBin]+=(weight*weightFile*treeFields[treeIndex].x);
+		  kinMeans[i][mBinning][mBin]+=(weight*weightFile*treeFields[treeIndex].M[iPair]);
+		  kinMeans[i][zBinning][zBin]+=(weight*weightFile*treeFields[treeIndex].z[iPair]);
 
-	      if(isnan(treeFields[treeIndex].x) || isnan(treeFields[treeIndex].M[iPair] || treeFields[treeIndex].z[iPair]))
-		cout <<"some pair nan" <<endl;
-		 
-	      if(isnan(weight))
-		cout <<"weight nan" <<endl;
-
-	      if(isnan(treeFields[treeIndex].weightUpperLimit[iPair]))
-		cout <<"weight nan upper" <<endl;
-
-	      if(isnan(treeFields[treeIndex].weightLowerLimit[iPair]))
-		cout <<"weight nan lower" <<endl;
-
-	      kinCounts[i][xBinning][xBin]+=(weight);
-	      kinCounts[i][mBinning][mBin]+=(weight);
-	      kinCounts[i][zBinning][zBin]+=(weight);
 	      
 
-	      counts[i][xBinning][xBin][phiBin][polIndex]+=weight;
+		  if(isnan(treeFields[treeIndex].x) || isnan(treeFields[treeIndex].M[iPair] || treeFields[treeIndex].z[iPair]))
+		    cout <<"some pair nan" <<endl;
+		  
+		  if(isnan(weight))
+		    cout <<"weight nan" <<endl;
+		  
+		  if(isnan(treeFields[treeIndex].weightUpperLimit[iPair]))
+		    cout <<"weight nan upper" <<endl;
+		  
+		  if(isnan(treeFields[treeIndex].weightLowerLimit[iPair]))
+		    cout <<"weight nan lower" <<endl;
+		  
+		  if(isElecMethod)
+		    {
+		      kinMeansAll[kinBinQ2][Q2Bin][xBin][zBin][mBin]+=(weight*weightFile*Q2);
+		      kinMeansAll[kinBinX][Q2Bin][xBin][zBin][mBin]+=(weight*weightFile*x);
+		      kinMeansAll[kinBinZ][Q2Bin][xBin][zBin][mBin]+=(weight*weightFile*z);
+		      kinMeansAll[kinBinM][Q2Bin][xBin][zBin][mBin]+=(weight*weightFile*M);
+		      kinCountsAll[kinBinQ2][Q2Bin][xBin][zBin][mBin]+=weight*weightFile;
+		      
+		      countsAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex]+=weight*weightFile;
+		      countsUpperAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex]+=weightFile*treeFields[treeIndex].weightUpperLimit[iPair];
+		      countsLowerAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex]+=weightFile*treeFields[treeIndex].weightLowerLimit[iPair];
+		    }
 
-	      countsUpper[i][xBinning][xBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair];
 
-	      countsLower[i][xBinning][xBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair];
+		  kinCounts[i][xBinning][xBin]+=(weight*weightFile);
+		  kinCounts[i][mBinning][mBin]+=(weight*weightFile);
+		  kinCounts[i][zBinning][zBin]+=(weight*weightFile);
+	      
 
-	      counts[i][mBinning][mBin][phiBin][polIndex]+=weight;
 
-	      countsUpper[i][mBinning][mBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair];
+	      
+		  counts[i][xBinning][xBin][phiBin][polIndex]+=weight*weightFile;
+		  
+		  countsUpper[i][xBinning][xBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair]*weightFile;
 
-	      countsLower[i][mBinning][mBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair];
+		  countsLower[i][xBinning][xBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair]*weightFile;
 
+		  counts[i][mBinning][mBin][phiBin][polIndex]+=weight*weightFile;
+		  
+		  countsUpper[i][mBinning][mBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair]*weightFile;
+		  
+		  countsLower[i][mBinning][mBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair]*weightFile;
+		  
 	      //	      cout <<"3" <<endl;
 	      //	      cout <<" i: "<< i <<" binning: "<< zBinning <<" zbin: "<< zBin <<" phiBin: "<< phiBin <<" pol: "<< polIndex <<endl;
-	      counts[i][zBinning][zBin][phiBin][polIndex]+=weight;
-	      countsUpper[i][zBinning][zBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair];
-	      countsLower[i][zBinning][zBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair];
-	      //	      cout <<"3+" <<endl;
+		  counts[i][zBinning][zBin][phiBin][polIndex]+=weight*weightFile;
+		  countsUpper[i][zBinning][zBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair]*weightFile;
+		  countsLower[i][zBinning][zBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair]*weightFile;
+		  //	      cout <<"3+" <<endl;
+		}
 	    }
 	}
     }
-
   //  	      cout <<"4" <<endl;
   for(int i=0;i<recTypeEnd;i++)
     {
+      
+      bool isElecMethod=false;
+      if(i==0)
+	isElecMethod=true;	
+
       cout <<" looking at " << recTypeNames[i] <<endl;
-      for(int binning=0;binning<3;binning++)
+      //  enum kinBin{kinBinQ2,kinBinX,kinBinZ,kinBinM,kinBinEnd};
+      for(int binning=kinBinQ2;binning<kinBinEnd;binning++)
 	{
 	  int numKinBins=xBins.size();
+	  switch(binning)
+	    {
+	    case kinBinQ2:
+	      numKinBins=Q2Bins.size();
+	      break;
+	    case kinBinX:
+	      numKinBins=xBins.size();
+	      break;
+	    case kinBinZ:
+	      numKinBins=zBins.size();
+	      break;
+	    case kinBinM:
+	      numKinBins=mBins.size();
+	      break;
+	    }
+	  /////-----
+
+
+	  //////---
+	  
 	  for(int kinBin=0;kinBin<numKinBins;kinBin++)
 	    {
+//	      double y[3][20];
+//	      double ey[3][20];
+//	      double x[3][20];
+//	      double ex[3][20];
 
-	      double y[3][20];
-	      double ey[3][20];
-	      double x[3][20];
-	      double ex[3][20];
-
+	      
 	      double** locCounts[3];
 	      locCounts[mean]=counts[i][binning][kinBin];
 	      locCounts[upper]=countsUpper[i][binning][kinBin];
 	      locCounts[lower]=countsLower[i][binning][kinBin];
+
+
+
 	      
 	      for(int iBound=mean;iBound<endBound;iBound++)
 		{
-		  for(int phiBin=0;phiBin<phiBins.size();phiBin++)
-		    {
-		      double Nup=locCounts[iBound][phiBin][1];
-		      double Ndown=locCounts[iBound][phiBin][0];
-		      double A=(Nup-Ndown)/(Nup+Ndown);
-		      
-		      cout <<"phiBin: "<< phiBin << " Nup: "<< Nup <<" Ndown: " << Ndown <<" A: " << A <<endl;
-		      y[iBound][phiBin]=A;
-		      x[iBound][phiBin]=(phiBin+0.5)*2*TMath::Pi()/numPhiBins;
-		      ex[iBound][phiBin]=0.0;
-
-		      double eU=sqrt(Nup);
-		      double eD=sqrt(Ndown);
-		      
-		      double uDeriv=2*Ndown/((Nup+Ndown)*(Nup+Ndown));
-		      double dDeriv=2*Nup/((Nup+Ndown)*(Nup+Ndown));
-		      
-		      ey[iBound][phiBin]=sqrt(uDeriv*uDeriv*eU*eU+dDeriv*dDeriv*eD*eD);
+		  pair<double,double> fitRes= getA(locCounts[mean], phiBins,kinBin,recTypeNames[i].c_str(),boundNames[iBound].c_str(),binning);
+		  amps[iBound][i][binning][kinBin]=fitRes.first;
+		  ampErrs[iBound][i][binning][kinBin]=fitRes.second;
 		  
-		    }
-		  TGraphErrors g(phiBins.size(),x[iBound],y[iBound],ex[iBound],ey[iBound]);
-		  
-		  gStyle->SetOptFit(111);
-		  sprintf(buffer,"graphFor_rec_%s_binning%d_kinBin%d_bound_%s.png",recTypeNames[i].c_str(),binning,kinBin,boundNames[iBound].c_str());
-		  TCanvas c1;
-		  TF1 f1("f1","[0]*sin(x)",0,2*M_PI);
-		  f1.SetParameters(0,0.0);
-		  g.Fit(&f1);
-		  g.Draw("AP");
-		  c1.SaveAs(buffer);
-		  amps[iBound][i][binning][kinBin]=f1.GetParameter(0);
-		  ampErrs[iBound][i][binning][kinBin]=f1.GetParError(0);
-		  cout << recTypeNames[i] <<", binning: "<< binning<< " kinBin: "<< kinBin <<endl;
-		  cout <<"amp for bound " << iBound<<" " << amps[iBound][i][binning][kinBin] <<endl;
-
-
-		  
+/////		  for(int phiBin=0;phiBin<phiBins.size();phiBin++)
+/////		    {
+/////		      double Nup=locCounts[iBound][phiBin][1];
+/////		      double Ndown=locCounts[iBound][phiBin][0];
+/////		      double A=(Nup-Ndown)/(Nup+Ndown);
+/////		      
+/////		      cout <<"phiBin: "<< phiBin << " Nup: "<< Nup <<" Ndown: " << Ndown <<" A: " << A <<endl;
+/////		      y[iBound][phiBin]=A;
+/////		      x[iBound][phiBin]=(phiBin+0.5)*2*TMath::Pi()/numPhiBins;
+/////		      ex[iBound][phiBin]=0.0;
+/////
+/////		      double eU=sqrt(Nup);
+/////		      double eD=sqrt(Ndown);
+/////		      
+/////		      double uDeriv=2*Ndown/((Nup+Ndown)*(Nup+Ndown));
+/////		      double dDeriv=2*Nup/((Nup+Ndown)*(Nup+Ndown));
+/////		      
+/////		      ey[iBound][phiBin]=sqrt(uDeriv*uDeriv*eU*eU+dDeriv*dDeriv*eD*eD);
+/////		  
+/////		    }
+/////		  TGraphErrors g(phiBins.size(),x[iBound],y[iBound],ex[iBound],ey[iBound]);
+/////		  
+/////		  gStyle->SetOptFit(111);
+/////		  sprintf(buffer,"graphFor_rec_%s_binning%d_kinBin%d_bound_%s.png",recTypeNames[i].c_str(),binning,kinBin,boundNames[iBound].c_str());
+/////		  TCanvas c1;
+/////		  TF1 f1("f1","[0]*sin(x)",0,2*M_PI);
+/////		  f1.SetParameters(0,0.0);
+/////		  g.Fit(&f1);
+/////		  g.Draw("AP");
+/////		  c1.SaveAs(buffer);
+/////		  amps[iBound][i][binning][kinBin]=f1.GetParameter(0);
+/////		  ampErrs[iBound][i][binning][kinBin]=f1.GetParError(0);
+/////		  cout << recTypeNames[i] <<", binning: "<< binning<< " kinBin: "<< kinBin <<endl;
+/////		  cout <<"amp for bound " << iBound<<" " << amps[iBound][i][binning][kinBin] <<endl;
+/////		}
 		}
+	      
+	    }
+	} 
+    }
+  for(int q2Bin=0;q2Bin<Q2Bins.size();q2Bin++)
+    {
+  for(int xBin=0;xBin<xBins.size();xBin++)
+    {
+      for(int zBin=0;zBin<zBins.size();zBin++)
+	{
+	  for(int mBin=0;mBin<mBins.size();mBin++)
+	    {
+	      //	      pair<double,double> fitRes= getA(locCounts[mean], phiBins,kinBin,recTypeNames[i].c_str(),boundNames[iBound].c_str(),binning);
+	      //	      		  countsAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex];
+	      pair<double,double> fitRes=getA(countsAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_mean",0);
+	      pair<double,double> fitResUpper=getA(countsUpperAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_upper",0);
+	      pair<double,double> fitResLower=getA(countsLowerAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_lower",0);
 
+	      asymAll[q2Bin][xBin][zBin][mBin]=fitRes.first;
+	      asymUpperAll[q2Bin][xBin][zBin][mBin]=fitResUpper.first;
+	      asymLowerAll[q2Bin][xBin][zBin][mBin]=fitResLower.first;
+	      //only care for uncertainties of the mean asym
+	      asymErrAll[q2Bin][xBin][zBin][mBin]=fitRes.second;
 	    }
 	}
     }
+    }
+
+  
   int numKinBins=xBins.size();
   TH1D* ampDiffHistos[8];
   TH1D* ampDiffHistosTotal[8];

@@ -31,6 +31,53 @@ void setBranchAddresses(TTree* mTree,diHadTreeFields& fields)
 }
 
 
+pair<double,double> getA(double** vals, vector<float>& phiBins,int kinBin, const char* recTypeName,const char* boundName, int binning)
+{
+  double y[20];
+  double ey[20];
+  double x[20];
+  double ex[20];
+
+  char buffer[200];
+  
+  int numPhiBins=phiBins.size();
+  for(int phiBin=0;phiBin<phiBins.size();phiBin++)
+    {
+      double Nup=vals[phiBin][1];
+      double Ndown=vals[phiBin][0];
+      double A=(Nup-Ndown)/(Nup+Ndown);
+      
+      cout <<"phiBin: "<< phiBin << " Nup: "<< Nup <<" Ndown: " << Ndown <<" A: " << A <<endl;
+      y[phiBin]=A;
+      x[phiBin]=(phiBin+0.5)*2*TMath::Pi()/numPhiBins;
+      ex[phiBin]=0.0;
+      
+      double eU=sqrt(Nup);
+      double eD=sqrt(Ndown);
+      
+      double uDeriv=2*Ndown/((Nup+Ndown)*(Nup+Ndown));
+      double dDeriv=2*Nup/((Nup+Ndown)*(Nup+Ndown));
+      
+      ey[phiBin]=sqrt(uDeriv*uDeriv*eU*eU+dDeriv*dDeriv*eD*eD);
+      
+    }
+  TGraphErrors g(phiBins.size(),x,y,ex,ey);
+  
+  gStyle->SetOptFit(111);
+  sprintf(buffer,"graphFor_rec_%s_binning%d_kinBin%d_bound_%s.png",recTypeName,binning,kinBin,boundName);
+  //sprintf(buffer,"graphFor_rec_%s_binning%d_kinBin%d_bound_%s.png",recTypeNames[i].c_str(),binning,kinBin,boundNames[iBound].c_str());
+  TCanvas c1;
+  TF1 f1("f1","[0]*sin(x)",0,2*M_PI);
+  f1.SetParameters(0,0.0);
+  g.Fit(&f1);
+  g.Draw("AP");
+  c1.SaveAs(buffer);
+  double A=f1.GetParameter(0);
+  double err=f1.GetParError(0);
+  return pair<double,double>(A,err);
+}
+
+
 template<class T> T** allocateArray(int dim1, int dim2);
 template<class T> T*** allocateArray(int dim1, int dim2, int dim3);
 template<class T> T**** allocateArray(int dim1, int dim2, int dim3, int dim4);

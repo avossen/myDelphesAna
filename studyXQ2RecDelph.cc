@@ -41,6 +41,7 @@ class ExRootTreeReader;
 class ExRootResult;
 const int corrBinsX=30;
 const int corrBinsQ2=10;
+const float minJetPt=10;
 
 const int corrBinsXLin=10;
 const int corrBinsQ2Lin=10;
@@ -52,6 +53,12 @@ struct TestPlots
   
   TTree* diHadTrees[8];
   diHadTreeFields treeFields[8];
+
+
+
+  TH1* Q2Spect;
+  TH1* jetPtSpect;
+  TH1* jetYSpect;
   
   TH2* angCorr;
   TH1* angRes;
@@ -116,6 +123,7 @@ struct TestPlots
   vector<float> zBins;
   vector<float> yBins;
 
+
   vector<float> ptBins;
 };
 
@@ -130,6 +138,12 @@ void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int 
   TLegend *legend;
   TPaveText *comment;
   char buffer[300];
+  sprintf(buffer,"Q2Spect_(%dx%d)",beamEnergyI,hadronBeamEnergyI);
+  plots->Q2Spect=result->AddHist1D(buffer,buffer,"Q2","counts",200,1,10000);
+  sprintf(buffer,"ptSpect_(%dx%d)",beamEnergyI,hadronBeamEnergyI);
+  plots->jetPtSpect=result->AddHist1D(buffer,buffer,"#Delta jet p_T","counts",200,0,50.0);
+  sprintf(buffer,"ptYSpect_(%dx%d)",beamEnergyI,hadronBeamEnergyI);
+  plots->jetYSpect=result->AddHist1D(buffer,buffer,"#Delta jet p_T","counts",200,0,1.0);
   sprintf(buffer,"Fraction of events staying in bin (%dx%d)",beamEnergyI,hadronBeamEnergyI);
   plots->yRes=result->AddHist1D("yRes","yRes","#Delta y","counts",200,-2.0,2.0);
   plots->yReal=result->AddHist1D("yReal","yReal","corr y","counts",200,-2.0,2.0);
@@ -145,16 +159,11 @@ void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int 
   plots->Q2VsXSmearMixed=result->AddHist2D("Q2VsXSmearMixed",buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
   plots->Q2VsXSmearNorm=result->AddHist2D("Q2VsXSmearNorm",buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
 
-
   plots->Q2VsXSmearLinear=result->AddHist2D("Q2VsXSmearLinear",buffer,"x","Q^{2}",corrBinsXLin,0.01,1,corrBinsQ2,0.5,10000,1,1);
   plots->Q2VsXSmearDALinear=result->AddHist2D("Q2VsXSmearDALinear",buffer,"x","Q^{2}",corrBinsXLin,0.01,1,corrBinsQ2,0.5,10000,1,1);
   plots->Q2VsXSmearJBLinear=result->AddHist2D("Q2VsXSmearJBLinear",buffer,"x","Q^{2}",corrBinsXLin,0.01,1,corrBinsQ2,0.5,10000,1,1);
   plots->Q2VsXSmearMixedLinear=result->AddHist2D("Q2VsXSmearMixedLinear",buffer,"x","Q^{2}",corrBinsXLin,0.01,1,corrBinsQ2,0.5,10000,1,1);
   plots->Q2VsXSmearNormLinear=result->AddHist2D("Q2VsXSmearNormLinear",buffer,"x","Q^{2}",corrBinsXLin,0.01,1,corrBinsQ2,0.5,10000,1,1);
-
-
-
-
   
 
   for(int i=0;i<recTypeEnd;i++)
@@ -255,6 +264,9 @@ void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int 
   plots->corrMixedX=result->AddHist2D("mixedX","mixedX","x true"," x rec",100 ,0.0001,1.0,100 ,-1.0,1.0,1,1);
 
 
+
+  BinLog(plots->Q2Spect->GetXaxis());
+  BinLog(plots->Q2Spect->GetYaxis());
   //  BinLog(plots->Q2VsXSmearNormEt.GetXaxis());
   BinLog(plots->Q2VsXSmear->GetXaxis());
   BinLog(plots->Q2VsXSmearDA->GetXaxis());
@@ -392,6 +404,10 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
   float linQ2Range=9990;
   float linXRange=0.99;
 
+
+  //HepMCEvent *event = (HepMCEvent*) branchEvent -> At(0);
+  //double wgt = event->Weight;
+  //    TClonesArray *branchEvent = treeReader->UseBranch("Event");
   TClonesArray *branchEvent=treeReader->UseBranch("Event");
   TClonesArray *branchParticle = treeReader->UseBranch("Particle");
   TClonesArray *branchElectron = treeReader->UseBranch("Electron");
@@ -427,6 +443,8 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
   for(entry=0;entry < allEntries;++entry)
     {
+
+
       if(entry%5000==0)
 	{
 	  cout <<"looking at event " << entry <<" of " << allEntries <<" : " <<100*entry/allEntries <<" % " <<endl;
@@ -437,6 +455,10 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  //	  break;
 	}
       treeReader->ReadEntry(entry);
+           HepMCEvent *event = (HepMCEvent*) branchEvent -> At(0);
+	double wgt = event->Weight;
+	//
+	//cout <<"weight: " << wgt <<endl;
 
       //	     # four-momenta of proton, electron, virtual photon/Z^0/W^+-.                                                                       //this is the truth                                         
       //      cout <<"going through entry " << entry <<endl;
@@ -501,6 +523,11 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
      //might as well make it explicit
       double trueY=y;
 
+
+      if(x< 0.1)
+	continue;
+      if(Q2<100)
+	continue;
 
       if(W2<0)
 	{
@@ -817,6 +844,9 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       TAxis *yaxis = plots->Q2VsXSmearNorm->GetYaxis();
       xBin = xaxis->FindBin(kinOrig.x);
       q2Bin = yaxis->FindBin(kinOrig.Q2);
+
+      plots->Q2Spect->Fill(kinOrig.Q2);
+      
       //      cout <<"using xbin: "<< xBin <<" q2Bin: "<< q2Bin << " for x: "<< kinOrig.x <<" q2: " << kinOrig.Q2 <<endl;
       //      cout <<"done " <<endl;
       
@@ -832,14 +862,25 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  ClusterSequence* csRec;
 	  ClusterSequence* csReal;
 	  getJets(branchEFlowTrack, branchTrack,  branchEFlowPhoton, branchEFlowNeutralHadron, recBoost, realBoost, jetsRec,  jetsReal,  csRec,  csReal);
+
+
+
+	  
 	  ////---
 	  //	  cout <<"recType: " << recTypeNames[i] <<", we found " << jetsRec.size() <<" real: "<< jetsReal.size()<<endl;
-	    for (unsigned i = 0; i < jetsRec.size(); i++) {
+	    for (unsigned j = 0; j < jetsRec.size(); j++) {
 	      //	      cout << "jet Rec" << i << ":pt "<< jetsRec[i].pt() << ", rap " << jetsRec[i].rap() << ", phi " << jetsRec[i].phi() << endl;
 	      //	      vector<PseudoJet> constituents = jetsRec[i].constituents();
-	      
+	      if(i==truth)
+		{
+		  if(jetsRec[j].pt()>10)
+		    {
+		      plots->jetYSpect->Fill(y);
+		      plots->jetPtSpect->Fill(jetsRec[j].pt());
+		    }
+		}
 	    }
-	    for (unsigned i = 0; i < jetsReal.size(); i++) {
+	    for (unsigned j = 0; j < jetsReal.size(); j++) {
 	      //	      cout << "jet Real" << i << ":pt "<< jetsReal[i].pt() << ", rap "                    << jetsReal[i].rap() << ", phi " << jetsReal[i].phi() << endl;
 	      //	      vector<PseudoJet> constituents = jetsReal[i].constituents();
 	    }
@@ -848,15 +889,24 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 		float rapReal=jetsReal[0].rap();
 		float rapRec=jetsRec[0].rap();
 		float phiReal=jetsReal[0].phi();
-		float phiRec=jetsRec[0].phi();
-		float jetDist=sqrt((rapReal-rapRec)*(rapReal-rapRec)+(phiReal-phiRec)*(phiReal-phiRec));
 
-		
-		
+		float phiRec=jetsRec[0].phi();
+		//				cout <<"phiReal: "<< phiReal << " phiRec: "<< phiRec <<endl;
+		float jetDist=sqrt((rapReal-rapRec)*(rapReal-rapRec)+(phiReal-phiRec)*(phiReal-phiRec));
+		//border cases
+		if((phiReal-phiRec)>TMath::Pi())
+		  {
+		    if(phiReal>TMath::Pi())
+		      phiReal-=2*TMath::Pi();
+		    if(phiRec>TMath::Pi())
+		      phiRec-=2*TMath::Pi();
+		  }
 		if(jetDist<1.0)
 		  {
 		    float ptReal=jetsReal[0].pt();
 		    float ptRec=jetsRec[0].pt();
+		    if(ptRec<minJetPt)
+		      break;
 		    int yBin=getBin(plots->yBins,y);
 		    int ptBin=getBin(plots->ptBins,ptReal);
 		    if(ptBin>=0)
@@ -867,7 +917,6 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 		  }
 	      }
 
-	    
 	    delete csRec;
 	    delete csReal;
 	    
@@ -1221,10 +1270,10 @@ int main(int argc, char** argv)
   TestPlots *plots = new TestPlots;
 
 
-  plots->ptBins.push_back(4);
-  plots->ptBins.push_back(6);
-  plots->ptBins.push_back(8);
-  plots->ptBins.push_back(50);
+  plots->ptBins.push_back(20);
+  plots->ptBins.push_back(30);
+  plots->ptBins.push_back(10000);
+
   
   plots->zBins.push_back(0.2);
   plots->zBins.push_back(0.3);
@@ -1233,8 +1282,8 @@ int main(int argc, char** argv)
   
   plots->yBins.push_back(0.05);
   plots->yBins.push_back(0.1);
-  plots->yBins.push_back(0.2);
-  plots->yBins.push_back(0.5);
+  //  plots->yBins.push_back(0.2);
+  //  plots->yBins.push_back(0.5);
   plots->yBins.push_back(2.0);
   
   cout <<" book histogram: " << endl;
@@ -1439,12 +1488,22 @@ int main(int argc, char** argv)
 	sprintf(buffer,"pTDists_yBin_%d_%d_%d.root",j,beamEnergyI,hadronBeamEnergyI);
 	c1.SaveAs(buffer);	
     
+
+	 d=sqrt(plots->ptBins.size());
+	
+	if(d< sqrt(plots->ptBins.size()))
+	  d++;
+
+  //  TCanvas c2;
+  //add one for legend
+	c1.Clear();
+	c1.Divide(d+1,d);
 	
 	///---
 	for(int k=0;k<plots->ptBins.size();k++)
 	  {
 	    c1.cd(k+1);
-	    for(int i=0;i<recTypeEnd;i++)
+	    for(int i=0;i<mostlyLepton;i++)
 	      {
 		cout <<"trying to plot i: "<< i <<" j : " << j << " k: "<< k <<endl;
 		plots->jetDiff[i][k][j]->SetMarkerColor(colors[i]);
@@ -1465,7 +1524,7 @@ int main(int argc, char** argv)
 	  }
 	auto legendJet=new TLegend(0,0,1.0,1,0);
 	
-	for(int i=0;i<recTypeEnd;i++)
+	for(int i=0;i<mostlyLepton;i++)
 	  {
 	    legendpt->AddEntry(plots->jetDiff[i][0][j],recTypeNames[i].c_str(),"p");
 	    
@@ -1484,14 +1543,63 @@ int main(int argc, char** argv)
 	c1.SaveAs(buffer);
 	sprintf(buffer,"jetDists_yBin_%d_%d_%d.root",j,beamEnergyI,hadronBeamEnergyI);
 	c1.SaveAs(buffer);	
-    }
+    
+	///---
+	for(int k=0;k<plots->ptBins.size();k++)
+	  {
+	    c1.cd(k+1);
+	    for(int i=0;i<mostlyLepton;i++)
+	      {
+		cout <<"trying to plot i: "<< i <<" j : " << j << " k: "<< k <<endl;
+		plots->jetEDiff[i][k][j]->SetMarkerColor(colors[i]);
+		plots->jetEDiff[i][k][j]->SetLineColor(colors[i]);
+		plots->jetEDiff[i][k][j]->SetMarkerStyle(markerStyles[i]);
+		if(i==0)
+		  plots->jetEDiff[i][k][j]->Draw("P");
+		else
+		  plots->jetEDiff[i][k][j]->Draw("SAME P");
+		
+		//save them individually
+		/*	      c1.cd(0);
+			      plots->pTHistos[i][k][j]->Draw();
+			      sprintf(buffer,"allPhiRHistos/pT_%s_zBin%d_yBin%d.png",recTypeNames[i].c_str(),k,j);
+			      c1.SaveAs(buffer);
+			      cout <<"done " <<endl;*/
+	      }
+	  }
+	//	auto legendJet=new TLegend(0,0,1.0,1,0);
+	
+	for(int i=0;i<mostlyLepton;i++)
+	  {
+	    legendpt->AddEntry(plots->jetEDiff[i][0][j],recTypeNames[i].c_str(),"p");
+	    
+	    TH1* histo=(TH1*)gDirectory->Get(plots->jetEDiff[i][0][j]->GetName());
+	    cout <<" pull name for legend: " << plots->jetEDiff[i][0][j]->GetName() <<endl;
+	    cout <<"color for marker: "<< plots->jetEDiff[i][0][j]->GetMarkerColor()<<endl;;
+	    cout <<" or " << histo->GetMarkerColor()<<endl;
+	    
+	    cout <<"style for marker: "<< plots->jetEDiff[i][0][j]->GetMarkerStyle()<<endl;
+	    cout <<" or " << histo->GetMarkerStyle()<<endl;
+	  }
+	c1.cd(plots->ptBins.size()+1);
+	legendJet->Draw();
+	legendJet->Draw();
+	sprintf(buffer,"jetEDists_yBin_%d_%d_%d.png",j,beamEnergyI,hadronBeamEnergyI);
+	c1.SaveAs(buffer);
+	sprintf(buffer,"jetEDists_yBin_%d_%d_%d.root",j,beamEnergyI,hadronBeamEnergyI);
+	c1.SaveAs(buffer);	
 
+    }
 //---  
   c1.SetLogy();
   c1.SetLogx();
 
   c1.cd(0);
 
+  sprintf(buffer,"q2Spect_%d_$d.ping",beamEnergyI,hadronBeamEnergyI);
+  plots->Q2Spect->Draw();
+  c1.SaveAs(buffer);
+  
   //  c1.SetLogz();
   for(int i=0;i<recTypeEnd;i++)
     {
@@ -1612,6 +1720,15 @@ int main(int argc, char** argv)
   c1.SaveAs(buffer);
 
 
+  plots->jetPtSpect->Draw();
+  sprintf(buffer,"jetPtSpect_%d%d.png",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+
+  plots->jetYSpect->Draw();
+  sprintf(buffer,"jetYSpect_%d%d.png",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+
+  
 
   c1.SetLogx();
   c1.SetLogy();
