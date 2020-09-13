@@ -35,11 +35,29 @@ enum RecType{elec, hadronic, da, mixed, mostlyLepton, truth,gen, genNoAcc,recTyp
 enum bound{mean,upper,lower,endBound};
 int main(int argc, char** argv)
 {
+
+  ////----for the fancy plotting
+  double minXCut=0.0001;
+  double minQ2Cut=1.0;
+  
+  double minQ2_fancy=1;
+  double maxQ2_fancy=1000;
+  double logMinQ2=log10(minQ2_fancy);
+  double logMaxQ2=log10(maxQ2_fancy);
+  double minX_fancy=0.0001;
+  double maxX_fancy=1.0;
+  double logMinX=log10(minX_fancy);
+  double logMaxX=log10(maxX_fancy);
+  
+  ////-----
+
+
+  
   long downCount=0;
   long upCount=0;
   int colors[]={kRed,kBlue,kGreen,kBlack,kCyan,kMagenta,kOrange,kYellow};
   int markerStyles[]={20,21,22,23,43,33,34,47};
-  string binningNames[]={"x","z","M"};
+  string binningNames[]={"Q2","x","z","M"};
   cout <<"??" <<endl;
   char buffer[1000];
 
@@ -65,55 +83,11 @@ int main(int argc, char** argv)
   //  double counts[8][4][10][16][2];
   //  double countsUpper[8][4][10][16][2];
   //  double countsLower[8][4][10][16][2];
-
-  int numXBins=10;
-  int numQ2Bins=10;
-  int numZBins=10;
-  int numMBins=10;
-  
-  //this also sets them to zero and can be dynamic
-  double***** counts=allocateArray<double>(8,4,10,16,2);
-  double***** countsUpper=allocateArray<double>(8,4,10,16,2);
-  double***** countsLower=allocateArray<double>(8,4,10,16,2);
-
-  //let's do this just for the electrons
-  double****** countsAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins,16,2);
-  double****** countsUpperAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins,16,2);
-  double****** countsLowerAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins,16,2);
-
-  double **** asymAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
-  double **** asymErrAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
-  double **** asymUpperAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
-  double **** asymLowerAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
-
-  enum kinBin{kinBinQ2,kinBinX,kinBinZ,kinBinM,kinBinEnd};
-  double ***** kinMeansAll=allocateArray<double>(4,numQ2Bins,numXBins,numZBins,numMBins);
-  double ***** kinCountsAll=allocateArray<double>(4,numQ2Bins,numXBins,numZBins,numMBins);
-  
-
-  double*** kinMeans=allocateArray<double>(8,4,10);
-  double*** kinCounts=allocateArray<double>(8,4,10);
-
-  //first dimention is bound (mean, upper, lower)
-  double**** amps=allocateArray<double>(3,8,4,10);
-  double**** ampErrs=allocateArray<double>(3,8,4,10);
-  
-  const int xBinning=0;
-  const int zBinning=1;
-  const int mBinning=2;
-
   vector<float> Q2Bins;
   vector<float> xBins;
   vector<float> zBins;
   vector<float> mBins;
   vector<float> phiBins;
-
-  int numPhiBins=8;
-  for(int i=0;i<numPhiBins;i++)
-    {
-      float bin=(i+1)*2*TMath::Pi()/numPhiBins;
-      phiBins.push_back(bin);
-    }
 
 
   Q2Bins.push_back(10);
@@ -150,6 +124,51 @@ int main(int argc, char** argv)
 
 
 
+  int numXBins=xBins.size();
+  int numQ2Bins=Q2Bins.size();
+  int numZBins=zBins.size();
+  int numMBins=mBins.size();
+  
+  //this also sets them to zero and can be dynamic
+  double***** counts=allocateArray<double>(8,4,10,16,2);
+  double***** countsUpper=allocateArray<double>(8,4,10,16,2);
+  double***** countsLower=allocateArray<double>(8,4,10,16,2);
+
+  //let's do this just for the electrons
+  double****** countsAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins,16,2);
+  double****** countsUpperAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins,16,2);
+  double****** countsLowerAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins,16,2);
+
+  double **** asymAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+  double **** asymErrAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+  double **** asymUpperAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+  double **** asymLowerAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+
+  enum kinBin{kinBinQ2,kinBinX,kinBinZ,kinBinM,kinBinEnd};
+  double ***** kinMeansAll=allocateArray<double>(4,numQ2Bins,numXBins,numZBins,numMBins);
+  double ***** kinCountsAll=allocateArray<double>(4,numQ2Bins,numXBins,numZBins,numMBins);
+  
+
+  double*** kinMeans=allocateArray<double>(8,4,10);
+  double*** kinCounts=allocateArray<double>(8,4,10);
+
+  //first dimention is bound (mean, upper, lower)
+  double**** amps=allocateArray<double>(3,8,4,10);
+  double**** ampErrs=allocateArray<double>(3,8,4,10);
+
+  //legacy variables
+  const int xBinning=kinBinX;
+  const int zBinning=kinBinZ;
+  const int mBinning=kinBinM;
+
+
+  int numPhiBins=8;
+  for(int i=0;i<numPhiBins;i++)
+    {
+      float bin=(i+1)*2*TMath::Pi()/numPhiBins;
+      phiBins.push_back(bin);
+    }
+
 
   ///---
   //    vector<string> vNoISRFilenames;
@@ -171,6 +190,7 @@ int main(int argc, char** argv)
       
   
       //      TFile mFile(argv[1]);
+      cout <<"opening root file: "<< str <<endl;
       TFile mFile(str.c_str());
       TTree* mTrees[8];
       
@@ -207,10 +227,20 @@ int main(int argc, char** argv)
 
 	      //needed to incorporate files with different Q2 ranges
 	      if(Q2< minQ2 || Q2> maxQ2)
-		continue;
+		{
+
+
+		  //~	  		  cout <<"q2 cut: "<< Q2 <<endl;
+		  continue;
+		}
+	      else
+		{
+		  //		  cout <<" after Q2 : " << Q2 <<endl;
+		}
 	      
 	      int Q2Bin=getBin(Q2Bins,Q2);
 	      int xBin=getBin(xBins,x);
+
 	      if(treeFields[treeIndex].x<0.0)
 		{
 		  continue;
@@ -219,9 +249,6 @@ int main(int argc, char** argv)
 		{
 		  continue;
 		}
-	      
-	      
-
 
 	      //some temporary event cuts
 	      if(treeFields[treeIndex].x<0.05)
@@ -264,6 +291,9 @@ int main(int argc, char** argv)
 		    continue;
 		  if(treeFields[treeIndex].M[iPair]<0.1)
 		    continue;
+
+
+		  //		  cout <<" looking at pair " << endl;
 	      
 		  int zBin=getBin(zBins,treeFields[treeIndex].z[iPair]);
 		  int mBin=getBin(mBins,treeFields[treeIndex].M[iPair]);
@@ -297,8 +327,6 @@ int main(int argc, char** argv)
 		  kinMeans[i][xBinning][xBin]+=(weight*weightFile*treeFields[treeIndex].x);
 		  kinMeans[i][mBinning][mBin]+=(weight*weightFile*treeFields[treeIndex].M[iPair]);
 		  kinMeans[i][zBinning][zBin]+=(weight*weightFile*treeFields[treeIndex].z[iPair]);
-
-	      
 
 		  if(isnan(treeFields[treeIndex].x) || isnan(treeFields[treeIndex].M[iPair] || treeFields[treeIndex].z[iPair]))
 		    cout <<"some pair nan" <<endl;
@@ -401,12 +429,10 @@ int main(int argc, char** argv)
 	      locCounts[upper]=countsUpper[i][binning][kinBin];
 	      locCounts[lower]=countsLower[i][binning][kinBin];
 
-
-
 	      
 	      for(int iBound=mean;iBound<endBound;iBound++)
 		{
-		  pair<double,double> fitRes= getA(locCounts[mean], phiBins,kinBin,recTypeNames[i].c_str(),boundNames[iBound].c_str(),binning);
+		  pair<double,double> fitRes= getA(locCounts[iBound], phiBins,kinBin,recTypeNames[i].c_str(),boundNames[iBound].c_str(),binning);
 		  amps[iBound][i][binning][kinBin]=fitRes.first;
 		  ampErrs[iBound][i][binning][kinBin]=fitRes.second;
 		  
@@ -486,7 +512,7 @@ int main(int argc, char** argv)
       ampDiffHistosTotal[i]=new TH1D(buffer,buffer,100,-0.03,0.03);
     }
   
-  for(int binning=0;binning<3;binning++)
+  for(int binning=kinBinQ2;binning<kinBinEnd;binning++)
     {
       
       TCanvas c;
@@ -504,8 +530,26 @@ int main(int argc, char** argv)
 	  double boundEYUpper[10];
 	  double boundEYLower[10];
 
+
+	  switch(binning)
+	    {
+	    case kinBinQ2:
+	      numKinBins=Q2Bins.size();
+	      break;
+	    case kinBinX:
+	      numKinBins=xBins.size();
+	      break;
+	    case kinBinZ:
+	      numKinBins=zBins.size();
+	      break;
+	    case kinBinM:
+	      numKinBins=mBins.size();
+	      break;
+	    }
+
 	  for(int iKin=0;iKin<numKinBins;iKin++)
 	    {
+	      
 	      y[iKin]=amps[mean][i][binning][iKin];
 	      boundEYUpper[iKin]=abs(amps[upper][i][binning][iKin]-y[iKin]);
 	      boundEYLower[iKin]=abs(amps[lower][i][binning][iKin]-y[iKin]);
@@ -542,7 +586,7 @@ int main(int argc, char** argv)
 	  g->SetMarkerStyle(markerStyles[i]);
 	  g->SetMarkerColor(colors[i]);
 
-	  if(binning==0)
+	  if(binning==kinBinX)
 	    {
 	      g->GetYaxis()->SetTitle("A");
 	      g->GetXaxis()->SetTitle(binningNames[binning].c_str());
@@ -564,12 +608,12 @@ int main(int argc, char** argv)
 	      g->GetYaxis()->SetRangeUser(-0.3,0.3);
 	    }
 
-	  if(binning==1)
+	  if(binning==kinBinZ)
 	    {
 	      if(i==0)
 		{
 		  		  		maxX=0.85;
-		  g->GetXaxis()->SetLimits(0.0,maxX);
+	       g->GetXaxis()->SetLimits(0.0,maxX);
 
 		gPad->DrawFrame(0.0,-0.3, maxX, 0.3);
 
@@ -577,11 +621,11 @@ int main(int argc, char** argv)
 	      g->GetXaxis()->SetRangeUser(0.0,0.85);
 	      g->GetYaxis()->SetRangeUser(-0.1,0.15);
 	    }
-	  if(binning==2)
+	  if(binning==kinBinM)
 	    {
 	      if(i==0)
 		{
-		  maxX=1.5;
+		  maxX=2.0;
 		gPad->DrawFrame(0.0,-0.3, maxX, 0.3);
 		g->GetXaxis()->SetLimits(0.0,maxX);
 		}
@@ -609,7 +653,7 @@ int main(int argc, char** argv)
 		g->Draw("SAME P");
 	      }
 	    
-	  //	        sprintf(buffer,"amps_binning_%s_recType_%s.png",binningNames[binning].c_str(),recTypeNames[i].c_str());
+	  //	        spxbrintf(buffer,"amps_binning_%s_recType_%s.png",binningNames[binning].c_str(),recTypeNames[i].c_str());
 	}
       TLine *line = new TLine(0,0,maxX,0);
       line->Draw();
@@ -617,6 +661,69 @@ int main(int argc, char** argv)
       c.SaveAs(buffer);
     }
 
+
+  //////---------
+  TCanvas fancyPlot;
+  ///make the axis
+  TH2D axis("myAx","myAx",100,0.0001,1.0,100,1,10000);
+  axis.GetXaxis()->SetTitle("x");
+  axis.GetYaxis()->SetTitle("Q^{2} [GeV]");
+
+  axis.Draw();
+
+  //  (xbins, Q2 bins
+  fancyPlot.SetLogx();
+  fancyPlot.SetLogy();
+  
+  for(int iX=0;iX<xBins.size();iX++)
+    {
+      for(int iQ;iQ<Q2Bins.size();iQ++)
+	{
+	  sprintf(buffer,"pad_xbin_%d_q2bin_%d",iX,iQ);
+
+	  //	  logMinQ2, logMinX
+	  double xlow=log10(minXCut);
+	  double ylow=log10(minQ2Cut);
+	  if(iX>0)
+	    {
+	      xlow=log10(xBins[iX-1]);	     
+	    }
+	  if(iQ>0)
+	    {
+	      ylow=log10(Q2Bins[iQ-1]);
+	    }
+	  double xup=log10(xBins[iX]);
+	  double yup=log10(Q2Bins[iQ]);
+
+	  double plotXRange=logMaxX-logMinX;
+	  double plotQ2Range=logMaxQ2-logMinQ2;
+
+	  xlow=xlow/plotXRange;
+	  xup=xup/plotXRange;
+
+	  ylow=ylow/plotQ2Range;
+	  yup=yup/plotQ2Range;
+
+	  TPad(buffer,buffer,xlow, ylow, xup, yup);
+
+	  ///draw on the pad...
+	  double x[40];
+	  double ex[40];
+	  double y[40];
+	  double ey[40];
+	  for(int i
+	  
+	  TGraph gr();
+	  
+	  ///---
+	  
+	}
+    }
+  fancyPlots.SaveAs("fancyPlot.png");
+  //////--------
+
+
+  
   TCanvas c;
   for(int i=0;i<recTypeEnd;i++)
     {
@@ -626,11 +733,8 @@ int main(int argc, char** argv)
       sprintf(buffer,"ampDiffHistoTotal_%s.png",recTypeNames[i].c_str());
       ampDiffHistosTotal[i]->Draw();
       c.SaveAs(buffer);
-
     }
-  
 }
-
 
 
 template<class T> T** allocateArray(int dim1, int dim2)

@@ -443,8 +443,6 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
   for(entry=0;entry < allEntries;++entry)
     {
-
-
       if(entry%5000==0)
 	{
 	  cout <<"looking at event " << entry <<" of " << allEntries <<" : " <<100*entry/allEntries <<" % " <<endl;
@@ -452,13 +450,12 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
       if(entry/(double)allEntries>0.05)
 	{
-	  //	  break;
+	  //	  	  break;
 	}
       treeReader->ReadEntry(entry);
-           HepMCEvent *event = (HepMCEvent*) branchEvent -> At(0);
-	double wgt = event->Weight;
+      HepMCEvent *event = (HepMCEvent*) branchEvent -> At(0);
+      double wgt = event->Weight;
 	//
-	//cout <<"weight: " << wgt <<endl;
 
       //	     # four-momenta of proton, electron, virtual photon/Z^0/W^+-.                                                                       //this is the truth                                         
       //      cout <<"going through entry " << entry <<endl;
@@ -527,7 +524,10 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       if(x< 0.1)
 	continue;
       if(Q2<100)
-	continue;
+	{
+	  //continue;
+	}
+     
 
       if(W2<0)
 	{
@@ -556,6 +556,8 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       int recElectronIndex=-1;
       float recElectronPt=-1.0;
 
+
+      //      cout <<" Q2: "<< Q2 << " x: "<< x <<" y: " << y <<endl;
       for(int ie=0;ie<branchElectron->GetEntries();ie++)
 	{
 	  Electron* e=((Electron*)branchElectron->At(ie));
@@ -608,7 +610,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       plots->angRes->Fill(hvSmeared.theta-hvOrig.theta);
       plots->angCorr->Fill(hvSmeared.theta, hvOrig.theta);
 
-      
+      //      cout <<"1 " <<endl;
       if(useTruth)
 	{
 	  hvSmeared=hvOrig;
@@ -617,8 +619,6 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       Kins kinJBSmeared=getKinsJB(hvSmeared,beamEnergy,hadronBeamEnergy,sqrtS*sqrtS);
       //Kins kinDASmeared=getKinsDA(e.Px(),e.Py(),e.Pz() ,e.E(),beamEnergy,hvSmeared.theta, sqrtS*sqrtS);
       //      Kins kinDASmeared=getKinsDA(recElectronParticle->Px,recElectronParticle->Py,recElectronParticle->Pz ,recElectronParticle->E,beamEnergy,hvSmeared.theta, sqrtS*sqrtS);
-
-
       Kins kinDASmeared=getKinsDA(pRecElectron.Px(),pRecElectron.Py(),pRecElectron.Pz() ,pRecElectron.E(),beamEnergy,hvSmeared.theta, sqrtS*sqrtS);
       
       //already have the correct hvSmeared, so just need to set the electron kinematics
@@ -629,7 +629,6 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
       //      cout <<"jb y: "<< kinJBSmeared.y << " sqrtS: "<< sqrtS <<endl;
       float mixedXSmeared=kinSmeared.Q2/(sqrtS*sqrtS*kinJBSmeared.y);
-      
       double binlogOrigQ2=log10(kinOrig.Q2);
       double binlogOrigX=log10(kinOrig.x);
       double binRecQ2=log10(kinSmeared.Q2);
@@ -672,6 +671,9 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       qOrig=pleptonIn-qOrig;
 
 
+
+      //      cout <<" 2" <<endl;
+      
       //////////////////////////
       //-->same for all
       double kappa=pProton.Pz()*pProton.Pz()/(pProton.E()*pProton.E())-1;
@@ -765,6 +767,8 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       
       for(int i=0;i<recTypeEnd;i++)
 	{
+	  //	  cout <<" rec type : "<< i <<endl;
+	  
 	  res[i]=getQz(a,b,kappa,usedy[i],qT2,Pz,Pe,usedQ2[i]);
 	  double qz=res[i].second;
 	  if(fabs(qElec.Pz()-res[i].second)>fabs(qElec.Pz()-res[i].first))
@@ -852,6 +856,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       
       for(int i=0;i<recTypeEnd;i++)
 	{
+	  //	  cout << " another rec type " << i <<endl;
 	  recBoost.breitBoost=q_bv[i];
 	  recBoost.W=W[i];
 	  recBoost.lv_q=q[i];
@@ -941,7 +946,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	    }
       ////-----
 	  ///	  	  cout <<"looking at rec pairs " <<endl;
-	  ////	  	  cout <<" running over " << pairsRec[i].size() << " pairs for comb " << recTypeNames[i] <<endl;
+	  //	  cout <<" running over " << pairsRec[i].size() << " pairs for comb " << recTypeNames[i] <<endl;
 
 	  //	  cout <<" num pairs " << pairsRec[i].size() <<endl;
 	  //for asymmetry calculation, always have spin vector point up
@@ -1388,7 +1393,7 @@ int main(int argc, char** argv)
 	      if(minpt>plots->pTHistos[i][k][j]->GetMinimum())
 		minpt=plots->pTHistos[i][k][j]->GetMinimum();
 	    }
-	  cout <<"1" <<endl;
+	  //	  cout <<"1" <<endl;
 	  for(int i=0;i<recTypeEnd;i++)
 	    {
 	      plots->phiRHistos[i][k][j]->SetMaximum(1.2*max);
@@ -1398,7 +1403,7 @@ int main(int argc, char** argv)
 	      plots->pTHistos[i][k][j]->SetMinimum(1.2*minpt);
 
 	    }
-	  	  cout <<"2" <<endl;
+	  //	  	  cout <<"2" <<endl;
 	  for(int i=0;i<recTypeEnd;i++)
 	    {
 	      cout <<"trying to plot i: "<< i <<" j : " << j << " k: "<< k <<endl;

@@ -9,7 +9,7 @@ using namespace std;
 
 #define MIN_NEUT_HADRON_E 0.1
 using namespace std;
-const int maxFields=200;
+const int maxFields=500;
 
 
 class Tools {
