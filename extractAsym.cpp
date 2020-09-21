@@ -1,3 +1,4 @@
+#include "TText.h"
 #include "TLorentzVector.h"
 #include "TF1.h"
 #include "TH1D.h"
@@ -31,28 +32,40 @@ using namespace std;
 
 #include "studyXQ2RecDelph.h"
 #include "extractAsym.h"
+#include "AUTweight.h"
+
+
 enum RecType{elec, hadronic, da, mixed, mostlyLepton, truth,gen, genNoAcc,recTypeEnd};
 enum bound{mean,upper,lower,endBound};
 int main(int argc, char** argv)
 {
-
+  bool useRealAsym=false;
+  //plot the inner pad of the projections vs m (otherwise z)
+  bool vsM=true;
+  int minCounts=10;
+  gStyle->SetOptStat(0);
+  AUTweight*  m_weights;
+  m_weights=new AUTweight();
+  
   ////----for the fancy plotting
+  //  double minXCut=0.001;
+  //following Marco's mesage
+  
   double minXCut=0.0001;
   double minQ2Cut=1.0;
   
-  double minQ2_fancy=1;
-  double maxQ2_fancy=1000;
+  double minQ2_fancy=0.1;
+  double maxQ2_fancy=10000;
   double logMinQ2=log10(minQ2_fancy);
   double logMaxQ2=log10(maxQ2_fancy);
+  //should be smaller then the actual cuts, so one can still see the axis
   double minX_fancy=0.0001;
   double maxX_fancy=1.0;
   double logMinX=log10(minX_fancy);
   double logMaxX=log10(maxX_fancy);
-  
+  double maxQ2Fancy=1000000;
+  double maxXFancy=1.0;
   ////-----
-
-
-  
   long downCount=0;
   long upCount=0;
   int colors[]={kRed,kBlue,kGreen,kBlack,kCyan,kMagenta,kOrange,kYellow};
@@ -90,27 +103,28 @@ int main(int argc, char** argv)
   vector<float> phiBins;
 
 
-  Q2Bins.push_back(10);
-  Q2Bins.push_back(50);
-  Q2Bins.push_back(100);
-  Q2Bins.push_back(1000000);
+
   
-  xBins.push_back(0.15);
-  xBins.push_back(0.2);
-    xBins.push_back(0.25);
-        xBins.push_back(0.3);
-  xBins.push_back(0.35);
-  xBins.push_back(0.45);
-    xBins.push_back(0.6);
+  for(int i=1;i<13;i++)
+    {
+      cout <<" adding q2Bin: "<< pow(10,i*0.25)<<endl;
+      Q2Bins.push_back(pow(10,+i*0.25));
+    }
+  Q2Bins.push_back(100000);
+  for(int i=1;i<25;i++)
+    {
+      cout <<" adding xbin: "<< pow(10,-5+i*0.2) <<endl;
+      xBins.push_back(pow(10,-5.0+i*0.2));
+    }
+	xBins.push_back(10.0);
 
-  xBins.push_back(50.0);
-
-  zBins.push_back(0.3);
-    zBins.push_back(0.35);
+  
+    zBins.push_back(0.3);
+      zBins.push_back(0.35);
   zBins.push_back(0.4);
-    zBins.push_back(0.45);
-  zBins.push_back(0.5);
-    zBins.push_back(0.6);
+      zBins.push_back(0.45);
+    zBins.push_back(0.5);
+      zBins.push_back(0.6);
   zBins.push_back(100.0);
   
   mBins.push_back(0.3);
@@ -119,9 +133,10 @@ int main(int argc, char** argv)
   mBins.push_back(0.7);
     mBins.push_back(0.8);
   mBins.push_back(0.9);
-    mBins.push_back(1.2);
-  mBins.push_back(200.0);
-
+   mBins.push_back(1.2);
+  mBins.push_back(1.5);
+  mBins.push_back(2000.0);
+  cout <<"mbins size: "<< mBins.size() <<endl;
 
 
   int numXBins=xBins.size();
@@ -145,9 +160,12 @@ int main(int argc, char** argv)
   double **** asymLowerAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
 
   enum kinBin{kinBinQ2,kinBinX,kinBinZ,kinBinM,kinBinEnd};
+    //try to just take the mean weight, instead of the value of the actual fit
+    double **** meanWeightAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+    double **** meanWeightUncAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
   double ***** kinMeansAll=allocateArray<double>(4,numQ2Bins,numXBins,numZBins,numMBins);
   double ***** kinCountsAll=allocateArray<double>(4,numQ2Bins,numXBins,numZBins,numMBins);
-  
+
 
   double*** kinMeans=allocateArray<double>(8,4,10);
   double*** kinCounts=allocateArray<double>(8,4,10);
@@ -161,7 +179,7 @@ int main(int argc, char** argv)
   const int zBinning=kinBinZ;
   const int mBinning=kinBinM;
 
-
+  //temporarily..
   int numPhiBins=8;
   for(int i=0;i<numPhiBins;i++)
     {
@@ -186,7 +204,11 @@ int main(int argc, char** argv)
       double weightFile=0;
       iss>> str >> minQ2 >> maxQ2 >> weightFile;
       cout <<"reading: " << str << " minQ2: " << minQ2 <<" maxQ2 " << maxQ2 <<" weight: " << weightFile <<endl;
-
+      if(str.length()<10)
+	{
+	  cout <<"bail..." <<endl;
+	  break;
+	}
       
   
       //      TFile mFile(argv[1]);
@@ -240,7 +262,11 @@ int main(int argc, char** argv)
 	      
 	      int Q2Bin=getBin(Q2Bins,Q2);
 	      int xBin=getBin(xBins,x);
-
+	      if(xBin==0 && Q2Bin==0)
+		{
+		  //		  cout <<"we have xbin 0 and q2 ==0 " <<endl;
+		}
+	      
 	      if(treeFields[treeIndex].x<0.0)
 		{
 		  continue;
@@ -251,10 +277,15 @@ int main(int argc, char** argv)
 		}
 
 	      //some temporary event cuts
-	      if(treeFields[treeIndex].x<0.05)
+	      if(treeFields[treeIndex].x<minXCut)
 		{
-		  //	      continue;
+		  	      continue;
 		}
+	      if(treeFields[treeIndex].Q2<minQ2Cut)
+		{
+		  	      continue;
+		}
+
 	      if(treeFields[treeIndex].y>0.1)
 		{
 		  //		continue;
@@ -342,6 +373,17 @@ int main(int argc, char** argv)
 		  
 		  if(isElecMethod)
 		    {
+		      double rawWeight=treeFields[treeIndex].rawWeight[iPair];
+		      double rawWeightUnc=treeFields[treeIndex].rawWeightUnc[iPair];
+
+
+		      if(xBin==0)
+			{
+			  //			  cout <<"getting raw Weight :" << rawWeight <<" for x " << x <<endl;
+			}
+		      meanWeightAll[Q2Bin][xBin][zBin][mBin]+=(rawWeight*weightFile);
+		      meanWeightUncAll[Q2Bin][xBin][zBin][mBin]+=(rawWeightUnc*weightFile);
+		      
 		      kinMeansAll[kinBinQ2][Q2Bin][xBin][zBin][mBin]+=(weight*weightFile*Q2);
 		      kinMeansAll[kinBinX][Q2Bin][xBin][zBin][mBin]+=(weight*weightFile*x);
 		      kinMeansAll[kinBinZ][Q2Bin][xBin][zBin][mBin]+=(weight*weightFile*z);
@@ -474,7 +516,7 @@ int main(int argc, char** argv)
 		}
 	      
 	    }
-	} 
+	}
     }
   for(int q2Bin=0;q2Bin<Q2Bins.size();q2Bin++)
     {
@@ -486,6 +528,7 @@ int main(int argc, char** argv)
 	    {
 	      //	      pair<double,double> fitRes= getA(locCounts[mean], phiBins,kinBin,recTypeNames[i].c_str(),boundNames[iBound].c_str(),binning);
 	      //	      		  countsAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex];
+
 	      pair<double,double> fitRes=getA(countsAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_mean",0);
 	      pair<double,double> fitResUpper=getA(countsUpperAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_upper",0);
 	      pair<double,double> fitResLower=getA(countsLowerAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_lower",0);
@@ -630,7 +673,7 @@ int main(int argc, char** argv)
 		g->GetXaxis()->SetLimits(0.0,maxX);
 		}
 	      g->GetXaxis()->SetRangeUser(0.0,maxX);
-	      g->GetYaxis()->SetRangeUser(-0.1,0.2);
+	      g->GetYaxis()->SetRangeUser(-0.1,0.3);
 	    }
 
 	  if(i==0)   
@@ -663,63 +706,379 @@ int main(int argc, char** argv)
 
 
   //////---------
-  TCanvas fancyPlot;
+  bool isLogFancyX=false;
+  TCanvas fancyPlot("fancy","fancy",10,10,6000,4000);
   ///make the axis
-  TH2D axis("myAx","myAx",100,0.0001,1.0,100,1,10000);
+  TH2D axis("myAx","",100,minX_fancy,maxX_fancy,100,minQ2_fancy,maxQ2_fancy);
   axis.GetXaxis()->SetTitle("x");
   axis.GetYaxis()->SetTitle("Q^{2} [GeV]");
 
   axis.Draw();
-
+  //needed to get the updated coordinates
+  fancyPlot.Update();
   //  (xbins, Q2 bins
-  fancyPlot.SetLogx();
-  fancyPlot.SetLogy();
   
+
+  if(isLogFancyX)
+    {
+      fancyPlot.SetLogx();
+    }
+  fancyPlot.SetLogy();
+  fancyPlot.Update();
+  
+  cout <<"xBins size: "<< xBins.size() <<endl;
   for(int iX=0;iX<xBins.size();iX++)
     {
-      for(int iQ;iQ<Q2Bins.size();iQ++)
+      cout <<"bin " << xBins[iX] <<endl;
+      for(int iQ=0;iQ<Q2Bins.size();iQ++)
 	{
 	  sprintf(buffer,"pad_xbin_%d_q2bin_%d",iX,iQ);
 
 	  //	  logMinQ2, logMinX
 	  double xlow=log10(minXCut);
+	  if(!isLogFancyX)
+	    {
+	      xlow=minXCut;
+	    }
 	  double ylow=log10(minQ2Cut);
+
+	  double xlowUser=minXCut;
+	  double ylowUser=minQ2Cut;
+	  double xupUser=xBins[iX];
+	  double yupUser=Q2Bins[iQ];
 	  if(iX>0)
 	    {
-	      xlow=log10(xBins[iX-1]);	     
+	      xlow=xBins[iX-1];
+	      if(isLogFancyX)
+		{
+		  xlow=log10(xlow);
+		}
+	      xlowUser=xBins[iX-1];
 	    }
 	  if(iQ>0)
 	    {
 	      ylow=log10(Q2Bins[iQ-1]);
+	      ylowUser=Q2Bins[iQ-1];
 	    }
-	  double xup=log10(xBins[iX]);
+	  cout << " iX: "<< iX <<" iQ: "<< iQ <<" xlow: "<< xlow <<" ylow: "<< ylow <<endl;
+	  ///this might not be necessary, since the user coordinate system of the canvas can be used
+	  double xup=xBins[iX];
+	  if(isLogFancyX)
+	    {
+	      xup=log10(xup);
+	    }
 	  double yup=log10(Q2Bins[iQ]);
-
-	  double plotXRange=logMaxX-logMinX;
-	  double plotQ2Range=logMaxQ2-logMinQ2;
-
-	  xlow=xlow/plotXRange;
-	  xup=xup/plotXRange;
-
-	  ylow=ylow/plotQ2Range;
-	  yup=yup/plotQ2Range;
-
-	  TPad(buffer,buffer,xlow, ylow, xup, yup);
-
-	  ///draw on the pad...
-	  double x[40];
-	  double ex[40];
-	  double y[40];
-	  double ey[40];
-	  for(int i
+	  if(xup>maxX_fancy)
+	    xup=maxX_fancy;
+	  if(isLogFancyX)
+	    {
+	      if(xup>logMaxX)
+		xup=logMaxX;
+	    }
 	  
-	  TGraph gr();
+	  if(yup>logMaxQ2)
+	    yup=logMaxQ2;
+	  //if we updated after the log setting, the getX1 is actually giving the decade.
+	  double plotXRange=fancyPlot.GetX2()-fancyPlot.GetX1();
+	  double plotQ2Range=fancyPlot.GetY2()-fancyPlot.GetY1();
+	  //logmaxQ2
 	  
+	  cout <<" logmaxX: "<< logMaxX <<" logminx: "<< logMinX << " plotxrange: "<< plotXRange <<endl;
+	  cout <<" xlow: " << xlow <<endl;
+	  xlow=(xlow-fancyPlot.GetX1())/plotXRange;
+	  xup=(xup-fancyPlot.GetX1())/plotXRange;
+
+	  ylow=(ylow-fancyPlot.GetY1())/plotQ2Range;
+	  yup=(yup-fancyPlot.GetY1())/plotQ2Range;
+	  //////
+	  
+	  //might happen with the last bin, since it has a 'catch-all'bound
+	  if(yup > 1.0)
+	    yup=1.0;
+	  if(xup>1.0)
+	    xup=1.0;
+	  if(yupUser>maxQ2Fancy)
+	    yupUser=maxQ2Fancy;
+	  if(xupUser>maxXFancy)
+	    xupUser=maxXFancy;
+
+	  cout <<"xupUser: " << xupUser <<" xlowUser: "<< xlowUser <<" yupUser: "<< yupUser <<" ylowUser: " << ylowUser <<endl;
+	  cout <<"x1: "<< fancyPlot.GetX1() <<" x2: "<< fancyPlot.GetX2() <<" y1: " << fancyPlot.GetY1() <<" y2: " << fancyPlot.GetY2()<<endl;
+	  ////we have the co-ordinates in user space, so let's convert to NDC
+	  //	  xup=(log10(xupUser)-log10(fancyPlot.GetX1()))/(log10(fancyPlot.GetX2())-log10(fancyPlot.GetX1()));
+	  //	  xlow=(log10(xlowUser)-log10(fancyPlot.GetX1()))/(log10(fancyPlot.GetX2())-log10(fancyPlot.GetX1()));
+	  //	  yup=(log10(yupUser)-log10(fancyPlot.GetY1()))/(log10(fancyPlot.GetY2())-log10(fancyPlot.GetY1()));
+	  //	  ylow=(log10(ylowUser)-log10(fancyPlot.GetY1()))/(log10(fancyPlot.GetY2())-log10(fancyPlot.GetY1()));
+	  cout <<"pad with xlow: "<< xlow <<" ylow: " << ylow <<" xup: "<< xup <<" yup: " << yup <<endl;
+	  TPad* myPad=new TPad(buffer,buffer,xlow, ylow, xup, yup,kBlue,2,1);//,kBlue,2,1);
+	  myPad->Draw();
+	  myPad->cd();
+
+	  ////////------------------divide again for M-----------
+	  ///num m bins
+	  //////--------
+	  vector<float> outerBinning=mBins;
+	  vector<float> innerBinning=zBins;
+	  cout <<"innerBinning size: "<< innerBinning.size()<<endl;
+	  if(vsM)
+	    {
+	      cout <<" vs M switch " << endl;
+	      outerBinning=zBins;
+	      innerBinning=mBins;
+	      cout <<"innerBinning size now : "<< innerBinning.size()<<endl;
+	      cout <<"mBins size now : "<< mBins.size()<<endl;
+	    }
+	  	      cout <<"innerBinning size and now : "<< innerBinning.size()<<endl;
+	    for(int im=0;im<outerBinning.size();im++)
+	      {
+		xlow=0.0;
+		ylow=im*1.0/outerBinning.size();
+		xup=1.0;
+		yup=(im+1)*1.0/outerBinning.size();
+		cout <<"put pad in pad with xlow: "<< xlow <<" ylow: "<< ylow <<" xup: " << xup <<" yup: "<< yup <<endl;
+		
+		sprintf(buffer, "innerPad_iq%d_ix%d_im%d",iQ,iX,im);
+		TPad* myPadInner=new TPad(buffer,buffer,xlow, ylow, xup, yup);//,kBlue,2,1);
+		//
+		if(im!=outerBinning.size()-1)
+		  {
+		    myPadInner->SetTopMargin(0.0);
+		  }
+		if(im!=0)
+		  {
+		    myPadInner->SetBottomMargin(0.0);
+		    double xmin=0;
+		    double ymin=0;
+		    double xmax=0;
+		    double ymax=0;
+		    myPadInner->GetRangeAxis(xmin, ymin, xmax ,ymax);
+		    cout <<" got axis ranges: xmin: "<< xmin << " ymin: " << ymin <<" xmax: "<< xmax <<" ymax: " << ymax <<endl;
+		    //no point of this
+		    //		    myPadInner->RangeAxis(xmin,ymin,xmax,ymax);
+		    myPadInner->Update();
+		  }
+		myPadInner->Update();
+		myPadInner->Draw();
+		//never know with root...just do it twice to be sure
+		myPadInner->Update();
+		myPadInner->Draw();
+		myPadInner->cd();
+		//	  myPad->SetFillColor(kBlue);
+		///draw on the pad...
+		double x[40];
+		double ex[40];
+		double y[40];
+		double ySys[40];
+		double ey[40];
+		double meanWeight=0;
+		double unc=0;
+
+		int filledZBins=0;
+		cout <<"inner binning size: "<<innerBinning.size()<<endl;
+		for(int iz=0;iz<innerBinning.size();iz++)
+		  {
+		    cout <<" iz: "<< iz <<" filledZBin: "<< filledZBins <<endl;
+		    double counts=0;
+		    if(vsM)
+		      {
+			counts=kinCountsAll[kinBinQ2][iQ][iX][im][iz];
+		      }
+		    else
+		      {
+			counts=kinCountsAll[kinBinQ2][iQ][iX][iz][im];
+		      }
+		    
+		    if(counts<minCounts)
+		      {
+			cout <<"mincounts iQ: "<< iQ <<" iX :"<< iX <<" iz: " << iz <<" im: "<< im <<" counts: "<< counts <<endl;
+			continue;
+		      }
+		    //	      	      asymAll[q2Bin][xBin][zBin][mBin]=fitRes.first;
+		    //		      kinMeansAll[kinBinM][Q2Bin][xBin][zBin][mBin]+=(weight*weightFile*M);
+		    //counts All for Q2 binning, since the counts are all the same
+		    double locQ2=0;
+		    double locM=0;
+		    double locZ=0;
+		    double locX=0;
+		    double locMeanWeightAll;
+		    double locMeanWeightUncAll;
+		    if(vsM)
+		      {
+			//switch i and m
+			locQ2=kinMeansAll[kinBinQ2][iQ][iX][im][iz]/kinCountsAll[kinBinQ2][iQ][iX][im][iz];
+			locM=kinMeansAll[kinBinM][iQ][iX][im][iz]/kinCountsAll[kinBinQ2][iQ][iX][im][iz];
+			locZ=kinMeansAll[kinBinZ][iQ][iX][im][iz]/kinCountsAll[kinBinQ2][iQ][iX][im][iz];
+			locX=kinMeansAll[kinBinX][iQ][iX][im][iz]/kinCountsAll[kinBinQ2][iQ][iX][im][iz];
+			if(iX==0)
+			  {
+			    cout <<"mean weight all:  "<< meanWeightAll[iQ][iX][im][iz] <<" counts: "<< kinCountsAll[kinBinQ2][iQ][iX][im][iz]<<endl;
+				 cout << iQ <<" im: "<< im <<" iz : "<< iz <<endl;
+			  }
+			locMeanWeightAll=meanWeightAll[iQ][iX][im][iz]/kinCountsAll[kinBinQ2][iQ][iX][im][iz];
+			locMeanWeightUncAll=meanWeightUncAll[iQ][iX][im][iz]/kinCountsAll[kinBinQ2][iQ][iX][im][iz];
+		      }
+		    else{
+		      locQ2=kinMeansAll[kinBinQ2][iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];
+		      locM=kinMeansAll[kinBinM][iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];		    
+		      locZ=kinMeansAll[kinBinZ][iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];	      
+		      locX=kinMeansAll[kinBinX][iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];
+
+		      
+		      locMeanWeightAll=meanWeightAll[iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];
+		      locMeanWeightUncAll=meanWeightUncAll[iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];
+		    }
+		    if(vsM)
+		      {
+			x[filledZBins]=kinMeansAll[kinBinM][iQ][iX][im][iz]/kinCountsAll[kinBinQ2][iQ][iX][im][iz];
+			//			cout <<"
+		      }
+		    else
+		      {
+			x[filledZBins]=kinMeansAll[kinBinZ][iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];
+		      }
+		    //
+		    //
+		    //	      cout <<"iz: "<< iz <<" x[iz]: " << x[iz] <<endl;
+		    ex[filledZBins]=0.0;
+		    //just put the model expections on there
+		    //
+		    cout <<"getting weight for point " << sqrt(locQ2) << " m: "<< locM <<" x: "<< locX <<" z: "<< locZ <<endl;
+
+		    
+		    m_weights->getWeight(sqrt(locQ2),locM,locX,locZ,meanWeight,unc);
+		    if(useRealAsym)
+		      {
+			if(vsM)
+			  y[filledZBins]=asymAll[iQ][iX][im][iz];
+			else
+			  y[filledZBins]=asymAll[iQ][iX][iz][im];
+		      }
+		    else
+		      {
+			//			y[filledZBins]=meanWeight;
+			cout <<"ix: "<< iX <<" iQ : "<< iQ << " iz: " << iz <<" im: "<< im << " mean weight: "<< locMeanWeightAll<<endl;
+			y[filledZBins]=locMeanWeightAll;
+		      }
+		    //		    ySys[filledZBins]=unc;
+		    ySys[filledZBins]=locMeanWeightUncAll;
+		    cout <<"using weight: "<< meanWeight <<" unc: "<< unc<<endl;
+		    if(useRealAsym)
+		      {
+			if(vsM)
+			  ey[filledZBins]=asymErrAll[iQ][iX][im][iz];
+			else
+			  ey[filledZBins]=asymErrAll[iQ][iX][iz][im];
+		      }
+		    else
+		      {
+		    //factor 1.5 is empirical
+			if(vsM)
+			  ey[filledZBins]=1.5/sqrt(kinCountsAll[kinBinQ2][iQ][iX][im][iz]);
+			else
+			  ey[filledZBins]=1.5/sqrt(kinCountsAll[kinBinQ2][iQ][iX][iz][im]);
+		      }
+		    //		    cout <<"asymErr: "<< asymErrAll[iQ][iX][iz][im] <<" naive: "<< 1.0/sqrt(kinCountsAll[kinBinQ2][iQ][iX][iz][im]) <<endl;
+		    if(vsM)
+		      cout << "iQ:  " <<iQ <<" ix: "<< iX <<" iz: "<< iz <<" im: "<< im <<" y val: : " <<  y[filledZBins]  <<" uncertainty: "<<  ey[filledZBins] <<endl;
+		    else
+		      		    cout << "iQ:  " <<iQ <<" ix: "<< iX <<" im: "<< im <<" iz: "<< iz <<" y val: : " <<  y[filledZBins]  <<" uncertainty: "<<  ey[filledZBins] <<endl;
+
+		    filledZBins++;
+		  }
+		//		cout <<"we have " << filledZBins << " filled z bins " << endl;
+	    
+		sprintf(buffer,"fancyGraph_xbin_%d_q2bin_%d",iX,iQ);
+		TGraphErrors* gr=new TGraphErrors(filledZBins,x,y,ex,ey);
+		TGraphErrors* grSys=new TGraphErrors(filledZBins,x,y,ex,ySys);
+		gr->SetTitle("");
+		gr->SetMarkerStyle(markerStyles[0]);
+		gr->SetMarkerColor(colors[0]);
+
+		grSys->SetTitle("sys");
+		grSys->SetMarkerStyle(markerStyles[0]);
+		grSys->SetMarkerColor(kGreen);
+		grSys->SetLineWidth(0);
+		grSys->SetLineColor(kGreen);
+		grSys->SetFillColor(kGreen);
+		
+		myPadInner->cd();
+		gr->Draw("AP");
+		if(im!=0)
+		  {
+		    gr->GetXaxis()->SetDrawOption("B");
+		  }
+		double maxX=0.85;
+		if(vsM)
+		  maxX=1.5;
+		gr->GetXaxis()->SetLimits(0.0,maxX);
+		
+		TLine *line = new TLine(0,0,maxX,0);
+		line->Draw();
+		gr->GetXaxis()->SetRangeUser(0.0,maxX);
+		gr->GetYaxis()->SetRangeUser(-0.02,0.2);
+		gr->GetXaxis()->SetTitle("z");
+		gr->GetXaxis()->SetTitleSize(0.05);
+		gr->GetXaxis()->SetTitleOffset(0.32);
+		gr->GetXaxis()->SetLabelSize(0.05);
+		if(vsM)
+		  gr->GetXaxis()->SetTitle("M");
+		gr->GetYaxis()->SetTitle("A");
+		gr->SetName(buffer);
+		gr->Draw("AP");
+		grSys->Draw("SAME 3");
+		gr->Draw("SAME P");
+		line->Draw();
+		if(iX==0)
+		  {
+		    float lowerM=0.0;
+		    float lowerZ=0.0;
+
+
+		    if(vsM)
+		      {
+			lowerZ=zBins[im-1];
+		      }
+		    else
+		      {
+			lowerM=mBins[im-1];
+		      }
+		    
+		    sprintf(buffer,"%.2f < M < %.2f",lowerM,outerBinning[im]);
+		    if(vsM)
+		      {
+			sprintf(buffer,"%.2f < z < %.2f",lowerZ,outerBinning[im]);
+		      }
+		   TText *t = new TText(.3,.8,buffer);
+		   t->SetNDC(true);
+		   t->SetTextAlign(22);
+		   t->SetTextColor(kRed+2);
+		   t->SetTextFont(43);
+		   t->SetTextSize(15);
+		   //		   t->SetTextAngle(45);
+		   t->Draw();
+		  }
+		//go back to mother pad to place the new one.
+		myPad->cd();
+	      }
 	  ///---
-	  
+	  //otherwise we'll do canvas in canvas...
+	  fancyPlot.cd();
 	}
+      cout <<"ix: " << iX << " xbins size: " << xBins.size() <<endl;
     }
-  fancyPlots.SaveAs("fancyPlot.png");
+  char vs[10];
+  if(vsM)
+    sprintf(vs,"M");
+  else
+    sprintf(vs,"z");
+  
+  sprintf(buffer,"fancyPlot_Vs%s.png",vs);
+  fancyPlot.SaveAs(buffer);
+  sprintf(buffer,"fancyPlot_Vs%s.pdf",vs);
+  fancyPlot.SaveAs(buffer);
+  sprintf(buffer,"fancyPlot_Vs%s.root",vs);
+  fancyPlot.SaveAs(buffer);
+
   //////--------
 
 

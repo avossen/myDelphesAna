@@ -27,6 +27,8 @@ void setBranchAddresses(TTree* mTree,diHadTreeFields& fields)
   mTree->SetBranchAddress("weight",fields.weight);
   mTree->SetBranchAddress("weightUpperLimit",fields.weightUpperLimit);
   mTree->SetBranchAddress("weightLowerLimit",fields.weightLowerLimit);
+  mTree->SetBranchAddress("rawWeight",fields.rawWeight);
+  mTree->SetBranchAddress("rawWeightUnc",fields.rawWeightUnc);
   mTree->SetBranchAddress("pairType",fields.pairType);
 }
 

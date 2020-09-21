@@ -132,12 +132,14 @@ AUTweight*  m_weights;
 TFile* myFile;
 
 
-void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int  hadronBeamEnergyI)
+void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int  hadronBeamEnergyI, const char* fileExt)
 {
-  myFile=new TFile("studyRec.root","recreate");
+
+  char buffer[300];
+  myFile=new TFile(fileExt,"recreate");
   TLegend *legend;
   TPaveText *comment;
-  char buffer[300];
+
   sprintf(buffer,"Q2Spect_(%dx%d)",beamEnergyI,hadronBeamEnergyI);
   plots->Q2Spect=result->AddHist1D(buffer,buffer,"Q2","counts",200,1,10000);
   sprintf(buffer,"ptSpect_(%dx%d)",beamEnergyI,hadronBeamEnergyI);
@@ -455,6 +457,8 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       treeReader->ReadEntry(entry);
       HepMCEvent *event = (HepMCEvent*) branchEvent -> At(0);
       double wgt = event->Weight;
+      double xsect= event->CrossSection;
+      //      cout <<"got xsect: "<< xsect << " for event " << entry <<endl;
 	//
 
       //	     # four-momenta of proton, electron, virtual photon/Z^0/W^+-.                                                                       //this is the truth                                         
@@ -520,9 +524,11 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
      //might as well make it explicit
       double trueY=y;
 
-
-      if(x< 0.1)
-	continue;
+      //as per Marco's message
+      if(x< 0.0001)
+	{
+	  continue;
+	}
       if(Q2<100)
 	{
 	  //continue;
@@ -975,7 +981,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	      double meanWeight=0;
 	      double unc=0;
 	      //	      cout <<"getting weight for Q2: "<< Q2<< " M: "<< pairsTrue[i][j].M <<" x: " << x <<" z: "<< pairsTrue[i][j].z <<endl;
-	      	      m_weights->getWeight(sqrt(Q2),pairsTrue[i][j].M,x,pairsTrue[i][j].z,meanWeight,unc);
+	      m_weights->getWeight(sqrt(Q2),pairsTrue[i][j].M,x,pairsTrue[i][j].z,meanWeight,unc);
 	      //	      cout <<"done: " << meanWeight<< endl;
 
 	      ///--->set to zero for testing
@@ -1229,9 +1235,9 @@ int main(int argc, char** argv)
   gStyle->SetOptStat(0);
   
 
-  if(argc<4)
+  if(argc<5)
     {
-      cout <<"filename and electron+hadron beam energy required " <<endl;
+      cout <<"filename and electron+hadron beam energy required and file ext" <<endl;
       exit(0);
     }
   //  TFile inputFile(argv[1]);
@@ -1292,7 +1298,7 @@ int main(int argc, char** argv)
   plots->yBins.push_back(2.0);
   
   cout <<" book histogram: " << endl;
-  BookHistograms(result, plots,beamEnergyI,hadronBeamEnergyI);
+  BookHistograms(result, plots,beamEnergyI,hadronBeamEnergyI,argv[4]);
   cout <<" analyze events: " << endl;
   AnalyzeEvents(treeReader, plots,beamEnergy, hadronBeamEnergy,sqrtS);
   cout <<"done analyzing, dividing... "<<endl;  

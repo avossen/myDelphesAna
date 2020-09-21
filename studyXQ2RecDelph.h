@@ -74,6 +74,8 @@ struct diHadTreeFields{
   float xF[maxFields];
   float pT[maxFields];
   float weight[maxFields];
+  float rawWeight[maxFields];
+  float rawWeightUnc[maxFields];
   float weightLowerLimit[maxFields];
   float weightUpperLimit[maxFields];
   int pairType[maxFields];
@@ -171,6 +173,8 @@ void fillTree(TTree* tree, diHadTreeFields& fields,vector<HadronPair>& pairs,con
       fields.theta[i]=pairs[i].m_theta;
       fields.M[i]=pairs[i].M;
       fields.pairType[i]=32;
+      fields.rawWeight[i]=weight;
+      fields.rawWeightUnc[i]=unc;
       fields.polarization[i]=pairs[i].polarization;
       //      fields.weight[i]=1+weight*fields.polarization*sin(truePhiR+truePhiS);
       //polarization is already taken into account via phiS
@@ -207,6 +211,8 @@ void doBranching(TTree* tree, diHadTreeFields& fields)
   tree->Branch("theta",(fields.theta),"theta[numHadronPairs]/F");
   tree->Branch("xF",(fields.xF),"xF[numHadronPairs]/F");
   tree->Branch("pT",(fields.pT),"pT[numHadronPairs]/F");
+  tree->Branch("rawWeight",(fields.rawWeight),"rawWeight[numHadronPairs]/F");
+  tree->Branch("rawWeightUnc",(fields.rawWeightUnc),"rawWeightUnc[numHadronPairs]/F");
   tree->Branch("weight",(fields.weight),"weight[numHadronPairs]/F");
   tree->Branch("weightUpperLimit",(fields.weightUpperLimit),"weightUpperLimit[numHadronPairs]/F");
   tree->Branch("weightLowerLimit",(fields.weightLowerLimit),"weightLowerLimit[numHadronPairs]/F");
