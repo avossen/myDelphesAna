@@ -55,7 +55,6 @@ struct TestPlots
   diHadTreeFields treeFields[8];
 
 
-
   TH1* Q2Spect;
   TH1* jetPtSpect;
   TH1* jetYSpect;
@@ -450,10 +449,13 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  cout <<"looking at event " << entry <<" of " << allEntries <<" : " <<100*entry/allEntries <<" % " <<endl;
 	}
 
-      if(entry/(double)allEntries>0.05)
+      if(entry/(double)allEntries<0.66)
 	{
 	  //	  	  break;
+	  continue;
 	}
+      //      cout <<"looking at event " << entry <<" of " << allEntries <<" : " <<100*entry/allEntries <<" % " <<endl;
+      
       treeReader->ReadEntry(entry);
       HepMCEvent *event = (HepMCEvent*) branchEvent -> At(0);
       double wgt = event->Weight;
@@ -1182,10 +1184,6 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
 int main(int argc, char** argv)
 {
-
-
-
-
   vector<PseudoJet> particles;
   // an event with three particles:   px    py  pz      E
   particles.push_back( PseudoJet(   99.0,  0.1,  0, 100.0) ); 
@@ -1225,8 +1223,6 @@ int main(int argc, char** argv)
   srand(time(NULL));
 
   m_weights=new AUTweight();
-
-
   
   int colors[]={kRed,kBlue,kGreen,kBlack,kCyan,kMagenta,kOrange,kYellow};
   int markerStyles[]={20,21,22,23,43,33,34,47};
@@ -1270,8 +1266,6 @@ int main(int argc, char** argv)
     }
 
   
-
-
   TChain *chain = new TChain("Delphes");
   chain->Add(argv[1]);
 
@@ -1279,8 +1273,6 @@ int main(int argc, char** argv)
   ExRootResult *result = new ExRootResult();
 
   TestPlots *plots = new TestPlots;
-
-
   plots->ptBins.push_back(20);
   plots->ptBins.push_back(30);
   plots->ptBins.push_back(10000);
@@ -1301,6 +1293,9 @@ int main(int argc, char** argv)
   BookHistograms(result, plots,beamEnergyI,hadronBeamEnergyI,argv[4]);
   cout <<" analyze events: " << endl;
   AnalyzeEvents(treeReader, plots,beamEnergy, hadronBeamEnergy,sqrtS);
+    
+  myFile->Write();
+
   cout <<"done analyzing, dividing... "<<endl;  
   plots->Q2VsXSmear->Divide(plots->Q2VsXSmearNorm);
   plots->Q2VsXSmearDA->Divide(plots->Q2VsXSmearNorm);
@@ -1318,10 +1313,8 @@ int main(int argc, char** argv)
   
   c1.SetLogy();
   c1.SetLogx();
-    cout <<"first... "<<endl;  
+  cout <<"first... "<<endl;  
 
-
-  
   plots->Q2VsXSmear->SetMaximum(1.0);
   plots->Q2VsXSmear->SetMinimum(0.0);
   
@@ -1365,6 +1358,9 @@ int main(int argc, char** argv)
 
   c1.SetLogy(false);
   c1.SetLogx(false);
+
+
+  
   for(int j=0;j<plots->yBins.size();j++)
     {
 	for(int k=0;k<plots->zBins.size();k++)

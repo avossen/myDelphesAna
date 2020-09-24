@@ -39,6 +39,9 @@ enum RecType{elec, hadronic, da, mixed, mostlyLepton, truth,gen, genNoAcc,recTyp
 enum bound{mean,upper,lower,endBound};
 int main(int argc, char** argv)
 {
+  
+  ofstream outFile;
+  outFile.open ("extractionOutput.txt");
   bool useRealAsym=false;
   //plot the inner pad of the projections vs m (otherwise z)
   bool vsM=true;
@@ -105,16 +108,18 @@ int main(int argc, char** argv)
 
 
   
-  for(int i=1;i<13;i++)
+    for(int i=1;i<13;i++)
+  //  for(int i=1;i<2;i++)
     {
       cout <<" adding q2Bin: "<< pow(10,i*0.25)<<endl;
       Q2Bins.push_back(pow(10,+i*0.25));
     }
   Q2Bins.push_back(100000);
-  for(int i=1;i<25;i++)
+      for(int i=1;i<20;i++)
+	//       for(int i=1;i<3;i++)
     {
-      cout <<" adding xbin: "<< pow(10,-5+i*0.2) <<endl;
-      xBins.push_back(pow(10,-5.0+i*0.2));
+      cout <<" adding xbin: "<< pow(10,-4+i*0.2) <<endl;
+      xBins.push_back(pow(10,-4.0+i*0.2));
     }
 	xBins.push_back(10.0);
 
@@ -143,11 +148,19 @@ int main(int argc, char** argv)
   int numQ2Bins=Q2Bins.size();
   int numZBins=zBins.size();
   int numMBins=mBins.size();
+
+
+  int maxBins=numXBins;
+  if(numZBins> maxBins)
+    maxBins=numZBins;
+  if(numMBins>maxBins)
+    maxBins=numMBins;
   
   //this also sets them to zero and can be dynamic
-  double***** counts=allocateArray<double>(8,4,10,16,2);
-  double***** countsUpper=allocateArray<double>(8,4,10,16,2);
-  double***** countsLower=allocateArray<double>(8,4,10,16,2);
+  //		  counts[i][xBinning][xBin][phiBin][polIndex]+=weight*weightFile;
+  double***** counts=allocateArray<double>(8,4,maxBins,16,2);
+  double***** countsUpper=allocateArray<double>(8,4,maxBins,16,2);
+  double***** countsLower=allocateArray<double>(8,4,maxBins,16,2);
 
   //let's do this just for the electrons
   double****** countsAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins,16,2);
@@ -165,6 +178,9 @@ int main(int argc, char** argv)
     double **** meanWeightUncAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
   double ***** kinMeansAll=allocateArray<double>(4,numQ2Bins,numXBins,numZBins,numMBins);
   double ***** kinCountsAll=allocateArray<double>(4,numQ2Bins,numXBins,numZBins,numMBins);
+  
+  //need to keep track of unweighted counts to get the uncertainties of the estimates
+  double **** kinCountsNoFileWeight=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
 
 
   double*** kinMeans=allocateArray<double>(8,4,10);
@@ -203,7 +219,7 @@ int main(int argc, char** argv)
       int maxQ2=0;
       double weightFile=0;
       iss>> str >> minQ2 >> maxQ2 >> weightFile;
-      cout <<"reading: " << str << " minQ2: " << minQ2 <<" maxQ2 " << maxQ2 <<" weight: " << weightFile <<endl;
+            cout <<"reading: " << str << " minQ2: " << minQ2 <<" maxQ2 " << maxQ2 <<" weight: " << weightFile <<endl;
       if(str.length()<10)
 	{
 	  cout <<"bail..." <<endl;
@@ -239,14 +255,14 @@ int main(int argc, char** argv)
 	  
 	  long numEntries=mTrees[treeIndex]->GetEntries();
       //      cout <<"we have " << numEntries << " entries " <<endl;
-	  cout <<"getting " << numEntries <<" for recTypeName " << recTypeNames[i]<<endl;
+	  //	  cout <<"getting " << numEntries <<" for recTypeName " << recTypeNames[i]<<endl;
 	  for(int ie=0;ie<numEntries;ie++)
 	    {
 	      mTrees[treeIndex]->GetEntry(ie);
-	      
+	      //	      cout <<" entry : "<< ie <<endl;
 	      double Q2=treeFields[treeIndex].Q2;
 	      double x=treeFields[treeIndex].x;
-
+	      //	      cout <<" x: "<< x <<" Q2: "<< Q2 <<endl;
 	      //needed to incorporate files with different Q2 ranges
 	      if(Q2< minQ2 || Q2> maxQ2)
 		{
@@ -292,8 +308,8 @@ int main(int argc, char** argv)
 		}
 	
 	      
-	  //	  cout <<"x: "<< treeFields[treeIndex].x <<" bin: " << xBin<<endl;
-	  //	  cout <<"looking at " << treeFields[treeIndex].numHadronPairs<<" pairs " <<endl;
+	      //	      cout <<"x: "<< treeFields[treeIndex].x <<" bin: " << xBin<<endl;
+	      //	  cout <<"looking at " << treeFields[treeIndex].numHadronPairs<<" pairs " <<endl;
 
 	      for(int iPair=0;iPair<treeFields[treeIndex].numHadronPairs;iPair++)
 		{
@@ -324,17 +340,17 @@ int main(int argc, char** argv)
 		    continue;
 
 
-		  //		  cout <<" looking at pair " << endl;
+		  //		  		  cout <<" looking at pair " << endl;
 	      
 		  int zBin=getBin(zBins,treeFields[treeIndex].z[iPair]);
 		  int mBin=getBin(mBins,treeFields[treeIndex].M[iPair]);
 		  float ang=treeFields[treeIndex].phiR[iPair]+treeFields[treeIndex].phiS[iPair];
 		  //	      float ang=treeFields[treeIndex].phiR[iPair];
 	      //	      	      	      float ang=treeFields[treeIndex].phiS[iPair];
-	      //	      cout <<"phiS: "<< ang <<endl;
+		  //	            cout <<"phiS: "<< ang <<endl;
 
-	      //	      cout <<" z: " << treeFields[treeIndex].z[iPair] <<endl;
-	      //	      cout <<" M: " << treeFields[treeIndex].M[iPair] <<endl;
+		  //	      	      cout <<" z: " << treeFields[treeIndex].z[iPair] <<endl;
+		  //	      	      cout <<" M: " << treeFields[treeIndex].M[iPair] <<endl;
 	      
 	      //	      cout <<"1" <<endl;
 		  while(ang>2*TMath::Pi())
@@ -354,13 +370,16 @@ int main(int argc, char** argv)
 		  float weight=treeFields[treeIndex].weight[iPair];
 		  
 	      //	      weight=1.0;
-	      //	      cout <<"2" <<endl;
+		  //		  	      	      cout <<"2" <<endl;
 		  kinMeans[i][xBinning][xBin]+=(weight*weightFile*treeFields[treeIndex].x);
 		  kinMeans[i][mBinning][mBin]+=(weight*weightFile*treeFields[treeIndex].M[iPair]);
 		  kinMeans[i][zBinning][zBin]+=(weight*weightFile*treeFields[treeIndex].z[iPair]);
+		  //		  cout <<"2>" <<endl;
 
 		  if(isnan(treeFields[treeIndex].x) || isnan(treeFields[treeIndex].M[iPair] || treeFields[treeIndex].z[iPair]))
-		    cout <<"some pair nan" <<endl;
+		    {
+		      cout <<"some pair nan" <<endl;
+		    }
 		  
 		  if(isnan(weight))
 		    cout <<"weight nan" <<endl;
@@ -381,6 +400,7 @@ int main(int argc, char** argv)
 			{
 			  //			  cout <<"getting raw Weight :" << rawWeight <<" for x " << x <<endl;
 			}
+		      //		      cout <<"2>>" <<endl;
 		      meanWeightAll[Q2Bin][xBin][zBin][mBin]+=(rawWeight*weightFile);
 		      meanWeightUncAll[Q2Bin][xBin][zBin][mBin]+=(rawWeightUnc*weightFile);
 		      
@@ -389,33 +409,44 @@ int main(int argc, char** argv)
 		      kinMeansAll[kinBinZ][Q2Bin][xBin][zBin][mBin]+=(weight*weightFile*z);
 		      kinMeansAll[kinBinM][Q2Bin][xBin][zBin][mBin]+=(weight*weightFile*M);
 		      kinCountsAll[kinBinQ2][Q2Bin][xBin][zBin][mBin]+=weight*weightFile;
+		      //		      cout <<"2>>>" <<endl;
 		      
 		      countsAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex]+=weight*weightFile;
 		      countsUpperAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex]+=weightFile*treeFields[treeIndex].weightUpperLimit[iPair];
 		      countsLowerAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex]+=weightFile*treeFields[treeIndex].weightLowerLimit[iPair];
+		      kinCountsNoFileWeight[Q2Bin][xBin][zBin][mBin]+=weight;
+		      //		      cout <<"2>>>>" <<endl;
 		    }
 
 
+		  //		  cout <<"2-" <<endl;
 		  kinCounts[i][xBinning][xBin]+=(weight*weightFile);
 		  kinCounts[i][mBinning][mBin]+=(weight*weightFile);
 		  kinCounts[i][zBinning][zBin]+=(weight*weightFile);
 	      
-
+		  //		  cout <<"2-0" <<endl;
 
 	      
-		  counts[i][xBinning][xBin][phiBin][polIndex]+=weight*weightFile;
-		  
-		  countsUpper[i][xBinning][xBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair]*weightFile;
 
+		  //		  cout <<"2-0-" <<endl;
+		  //		  cout <<" fields: "<< treeFields[treeIndex].x <<endl;
+		  //		  cout <<"ipair: " << iPair <<endl;
+		  //		  cout << " treeF: " << treeFields[treeIndex].weightUpperLimit[iPair]*weightFile <<endl;
+		  //		  cout <<" we want to fill " << i <<" xBinning " << xBinning <<" xbin: "<< xBin <<" phiBin: "<< phiBin <<" polIndex: "<< polIndex <<endl;
+		  counts[i][xBinning][xBin][phiBin][polIndex]+=weight*weightFile;
+		  countsUpper[i][xBinning][xBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair]*weightFile;
+		  //		  		  cout <<"2-0-0" <<endl;
 		  countsLower[i][xBinning][xBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair]*weightFile;
 
-		  counts[i][mBinning][mBin][phiBin][polIndex]+=weight*weightFile;
 		  
+		  //		  		  cout <<"2-0-0-" <<endl;
+		  counts[i][mBinning][mBin][phiBin][polIndex]+=weight*weightFile;
+		  //		  		  cout <<"2-00" <<endl;
 		  countsUpper[i][mBinning][mBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair]*weightFile;
 		  
 		  countsLower[i][mBinning][mBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair]*weightFile;
 		  
-	      //	      cout <<"3" <<endl;
+		  //	      	      cout <<"3" <<endl;
 	      //	      cout <<" i: "<< i <<" binning: "<< zBinning <<" zbin: "<< zBin <<" phiBin: "<< phiBin <<" pol: "<< polIndex <<endl;
 		  counts[i][zBinning][zBin][phiBin][polIndex]+=weight*weightFile;
 		  countsUpper[i][zBinning][zBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair]*weightFile;
@@ -520,27 +551,27 @@ int main(int argc, char** argv)
     }
   for(int q2Bin=0;q2Bin<Q2Bins.size();q2Bin++)
     {
-  for(int xBin=0;xBin<xBins.size();xBin++)
-    {
-      for(int zBin=0;zBin<zBins.size();zBin++)
+      for(int xBin=0;xBin<xBins.size();xBin++)
 	{
-	  for(int mBin=0;mBin<mBins.size();mBin++)
+	  for(int zBin=0;zBin<zBins.size();zBin++)
 	    {
-	      //	      pair<double,double> fitRes= getA(locCounts[mean], phiBins,kinBin,recTypeNames[i].c_str(),boundNames[iBound].c_str(),binning);
-	      //	      		  countsAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex];
-
-	      pair<double,double> fitRes=getA(countsAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_mean",0);
-	      pair<double,double> fitResUpper=getA(countsUpperAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_upper",0);
-	      pair<double,double> fitResLower=getA(countsLowerAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_lower",0);
-
-	      asymAll[q2Bin][xBin][zBin][mBin]=fitRes.first;
-	      asymUpperAll[q2Bin][xBin][zBin][mBin]=fitResUpper.first;
-	      asymLowerAll[q2Bin][xBin][zBin][mBin]=fitResLower.first;
-	      //only care for uncertainties of the mean asym
-	      asymErrAll[q2Bin][xBin][zBin][mBin]=fitRes.second;
+	      for(int mBin=0;mBin<mBins.size();mBin++)
+		{
+		  //	      pair<double,double> fitRes= getA(locCounts[mean], phiBins,kinBin,recTypeNames[i].c_str(),boundNames[iBound].c_str(),binning);
+		  //	      		  countsAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex];
+		  
+		  pair<double,double> fitRes=getA(countsAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_mean",0);
+		  pair<double,double> fitResUpper=getA(countsUpperAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_upper",0);
+		  pair<double,double> fitResLower=getA(countsLowerAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_lower",0);
+		  
+		  asymAll[q2Bin][xBin][zBin][mBin]=fitRes.first;
+		  asymUpperAll[q2Bin][xBin][zBin][mBin]=fitResUpper.first;
+		  asymLowerAll[q2Bin][xBin][zBin][mBin]=fitResLower.first;
+		  //only care for uncertainties of the mean asym
+		  asymErrAll[q2Bin][xBin][zBin][mBin]=fitRes.second;
+		}
 	    }
 	}
-    }
     }
 
   
@@ -557,22 +588,18 @@ int main(int argc, char** argv)
   
   for(int binning=kinBinQ2;binning<kinBinEnd;binning++)
     {
-      
       TCanvas c;
       float maxX=0.8;
-
-      
       for(int i=0;i<recTypeEnd;i++)
 	{
-	  double y[10];
-	  double x[10];
-	  double ey[10];
-	  double ex[10];
+	  double y[30];
+	  double x[30];
+	  double ey[30];
+	  double ex[30];
 
 	  //the rest for the bounds are the same
-	  double boundEYUpper[10];
-	  double boundEYLower[10];
-
+	  double boundEYUpper[30];
+	  double boundEYLower[30];
 
 	  switch(binning)
 	    {
@@ -592,7 +619,6 @@ int main(int argc, char** argv)
 
 	  for(int iKin=0;iKin<numKinBins;iKin++)
 	    {
-	      
 	      y[iKin]=amps[mean][i][binning][iKin];
 	      boundEYUpper[iKin]=abs(amps[upper][i][binning][iKin]-y[iKin]);
 	      boundEYLower[iKin]=abs(amps[lower][i][binning][iKin]-y[iKin]);
@@ -602,7 +628,6 @@ int main(int argc, char** argv)
 	      cout <<"getting x for binning " << binning <<" : means: "<< kinMeans[i][binning][iKin] << " counts: "<< kinCounts[i][binning][iKin] <<endl;
 	      ex[iKin]=0.0;
 	      cout <<"iKin: "<< iKin << " y: "<< y[iKin] <<" x:" << x[iKin] << " ey: "<< ey[iKin]<<endl;
-
 
 	      if(i!=gen)
 		{
@@ -704,7 +729,7 @@ int main(int argc, char** argv)
       c.SaveAs(buffer);
     }
 
-
+  cout <<"about to start fancy plots " <<endl;
   //////---------
   bool isLogFancyX=false;
   TCanvas fancyPlot("fancy","fancy",10,10,6000,4000);
@@ -922,7 +947,6 @@ int main(int argc, char** argv)
 		      locM=kinMeansAll[kinBinM][iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];		    
 		      locZ=kinMeansAll[kinBinZ][iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];	      
 		      locX=kinMeansAll[kinBinX][iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];
-
 		      
 		      locMeanWeightAll=meanWeightAll[iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];
 		      locMeanWeightUncAll=meanWeightUncAll[iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];
@@ -943,7 +967,6 @@ int main(int argc, char** argv)
 		    //just put the model expections on there
 		    //
 		    cout <<"getting weight for point " << sqrt(locQ2) << " m: "<< locM <<" x: "<< locX <<" z: "<< locZ <<endl;
-
 		    
 		    m_weights->getWeight(sqrt(locQ2),locM,locX,locZ,meanWeight,unc);
 		    if(useRealAsym)
@@ -956,7 +979,8 @@ int main(int argc, char** argv)
 		    else
 		      {
 			//			y[filledZBins]=meanWeight;
-			cout <<"ix: "<< iX <<" iQ : "<< iQ << " iz: " << iz <<" im: "<< im << " mean weight: "<< locMeanWeightAll<<endl;
+						cout <<"ix: "<< iX <<" iQ : "<< iQ << " iz: " << iz <<" im: "<< im << " mean weight: "<< locMeanWeightAll<<endl;
+			
 			y[filledZBins]=locMeanWeightAll;
 		      }
 		    //		    ySys[filledZBins]=unc;
@@ -971,22 +995,49 @@ int main(int argc, char** argv)
 		      }
 		    else
 		      {
+			cout <<"doing ey" <<endl;
 		    //factor 1.5 is empirical
 			if(vsM)
 			  ey[filledZBins]=1.5/sqrt(kinCountsAll[kinBinQ2][iQ][iX][im][iz]);
 			else
 			  ey[filledZBins]=1.5/sqrt(kinCountsAll[kinBinQ2][iQ][iX][iz][im]);
+
+			cout <<"done with ey " << endl;
 		      }
+		    cout <<"dada " <<endl;
+
+		    int mBin=im;
+		    int zBin=iz;
+		    if(vsM)
+		      {
+			mBin=iz;
+			zBin=im;
+		      }
+		    //		      double **** kinCountsNoFileWeight=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+		    cout <<" hey hey " <<endl;
+		    cout <<"wanting to get iQ: "<< iQ <<" iX: "<< iX <<" iz: "<< iz <<" im:" << im <<endl;
+		    //		      double **** kinCountsNoFileWeight=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+		    //		    cout <<"we want to divide by " <<sqrt(kinCountsNoFileWeight[iQ][iX][iz][im]) <<endl;
+		    
+		    double relSimuUncert=0;
+		    if(vsM)
+		      relSimuUncert=1/sqrt(kinCountsNoFileWeight[iQ][iX][im][iz]);
+		    else
+		      relSimuUncert=1/sqrt(kinCountsNoFileWeight[iQ][iX][iz][im]);
+		    cout <<"writing to file .." <<endl;
+		    outFile << iQ <<" " << iX << " " <<mBin <<" " << zBin <<  " " << locQ2 <<" " << locX << " " << locM <<" " <<locZ << " " <<  y[filledZBins] <<" +- "<< ey[filledZBins] << " " << relSimuUncert  <<  endl;
+
+
+		    
 		    //		    cout <<"asymErr: "<< asymErrAll[iQ][iX][iz][im] <<" naive: "<< 1.0/sqrt(kinCountsAll[kinBinQ2][iQ][iX][iz][im]) <<endl;
 		    if(vsM)
 		      cout << "iQ:  " <<iQ <<" ix: "<< iX <<" iz: "<< iz <<" im: "<< im <<" y val: : " <<  y[filledZBins]  <<" uncertainty: "<<  ey[filledZBins] <<endl;
 		    else
 		      		    cout << "iQ:  " <<iQ <<" ix: "<< iX <<" im: "<< im <<" iz: "<< iz <<" y val: : " <<  y[filledZBins]  <<" uncertainty: "<<  ey[filledZBins] <<endl;
-
 		    filledZBins++;
 		  }
-		//		cout <<"we have " << filledZBins << " filled z bins " << endl;
-	    
+		cout <<"we have " << filledZBins << " filled z bins " << endl;
+	      	    
 		sprintf(buffer,"fancyGraph_xbin_%d_q2bin_%d",iX,iQ);
 		TGraphErrors* gr=new TGraphErrors(filledZBins,x,y,ex,ey);
 		TGraphErrors* grSys=new TGraphErrors(filledZBins,x,y,ex,ySys);
@@ -1066,6 +1117,8 @@ int main(int argc, char** argv)
 	}
       cout <<"ix: " << iX << " xbins size: " << xBins.size() <<endl;
     }
+  outFile.flush();
+  outFile.close();
   char vs[10];
   if(vsM)
     sprintf(vs,"M");
