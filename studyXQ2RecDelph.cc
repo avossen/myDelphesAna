@@ -34,9 +34,9 @@ using namespace std;
 
 #include "studyXQ2RecDelph.h"
 
-enum RecType{elec, hadronic, da, mixed, mostlyLepton, truth,gen, genNoAcc,recTypeEnd};
+enum RecType{elec,gen, truth, recTypeEnd, hadronic, da, mixed, mostlyLepton,  genNoAcc};
 //  int colors[]={kRed,kBlue,kGreen,kBlack,kCyan,kMagenta,kOrange,kYellow};
-string recTypeNames[]={"elec","hadronic","da","mixed","mostlyLepton","trueBoost","generatedWAcc","generatedWOAcc"};
+string recTypeNames[]={"elec","generatedWAcc","truth","hadronic","da","mixed","mostlyLepton","generatedWOAcc"};
 class ExRootTreeReader;
 class ExRootResult;
 const int corrBinsX=30;
@@ -121,8 +121,7 @@ struct TestPlots
     
   vector<float> zBins;
   vector<float> yBins;
-
-
+  
   vector<float> ptBins;
 };
 
@@ -394,8 +393,9 @@ void PrintHistograms(ExRootResult *result, TestPlots *plots)
 {
   result->Print("png");
 }
-void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEnergy, double hadronBeamEnergy,double sqrtS)
+void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEnergy, double hadronBeamEnergy,double sqrtS, int whichHalf)
 {
+  cout <<" which half? " << whichHalf <<endl;
   cout <<"in ana events " <<endl;
     bool useTruth=false;
   //       bool useTruth=true;
@@ -441,26 +441,37 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
   Int_t i, j, pdgCode;
 
-
+  double diffSum=0;
+  double diffCount=0;
+  double pxSum=0;
+    double pySum=0;
+      double pzSum=0;
   for(entry=0;entry < allEntries;++entry)
     {
-      if(entry%5000==0)
+      //                    cout << endl<<" new event " <<endl;
+      if(entry%20000==0)
 	{
 	  cout <<"looking at event " << entry <<" of " << allEntries <<" : " <<100*entry/allEntries <<" % " <<endl;
 	}
 
-      if(entry/(double)allEntries<0.66)
+
+      //in reality here third
+      if(whichHalf>0)
 	{
-	  //	  	  break;
-	  continue;
+	  if(entry/(double)allEntries>(whichHalf/3.0) || entry/(double)allEntries<(whichHalf-1.0)/3.0)
+	    {
+	      //	  	  break;
+	  	  	  	  continue;
+	    }
 	}
+
       //      cout <<"looking at event " << entry <<" of " << allEntries <<" : " <<100*entry/allEntries <<" % " <<endl;
       
       treeReader->ReadEntry(entry);
       HepMCEvent *event = (HepMCEvent*) branchEvent -> At(0);
       double wgt = event->Weight;
       double xsect= event->CrossSection;
-      //      cout <<"got xsect: "<< xsect << " for event " << entry <<endl;
+      //     cout <<"got xsect: "<< xsect << " for event " << entry <<endl;
 	//
 
       //	     # four-momenta of proton, electron, virtual photon/Z^0/W^+-.                                                                       //this is the truth                                         
@@ -468,7 +479,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       //      cout <<" is there a pointer here? " << branchParticle->At(0) <<endl;
 
       //      cout <<"branch event has " << branchEvent->GetEntries() <<endl;
-
+      //      cout <<"1" <<endl;
     
       if(branchParticle->GetEntries()>10)
  	{	
@@ -564,7 +575,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       int recElectronIndex=-1;
       float recElectronPt=-1.0;
 
-
+      //      cout <<"2" <<endl;
       //      cout <<" Q2: "<< Q2 << " x: "<< x <<" y: " << y <<endl;
       for(int ie=0;ie<branchElectron->GetEntries();ie++)
 	{
@@ -585,6 +596,17 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       // 	{
  	  recElectron = ((Electron*)branchElectron->At(recElectronIndex));
  	  pRecElectron =recElectron->P4();
+
+	  cout <<"rec electron e: " << pRecElectron.E() << " diff to truth: "<< pRecElectron.E()-pleptonOut.E()<<endl;
+	  if(y>0.1 && y<0.85)
+	    {
+	      pxSum+=pRecElectron.Px()-pleptonOut.Px();
+	      	      pySum+=pRecElectron.Py()-pleptonOut.Py();
+		      	      pzSum+=pRecElectron.Pz()-pleptonOut.Pz();
+	      diffSum+=pRecElectron.E()-pleptonOut.E();
+	      diffCount++;
+	      cout <<"mean e diff: "<< diffSum/diffCount <<" mean px diff: "<< pxSum/diffCount <<" py: "<< pySum/diffCount <<" pz: "<< pzSum/diffCount <<endl;
+	    }
 	  // 	}
 	  //      else
 	  // 	{
@@ -672,7 +694,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       //      cout <<" h sum pz: "<< hvSmeared.sumPz << " l pz: " << pleptonOut.Pz() <<endl;
       //      cout <<"initial pz sum: " << kinOrig.x*hadronBeamEnergy-beamEnergy <<" and then " << hvSmeared.sumPz+pleptonOut.Pz()  <<" diff: "<< kinOrig.x*hadronBeamEnergy-beamEnergy -( hvSmeared.sumPz+pleptonOut.Pz()) <<endl;
       //            cout <<"same w/o  x:initial pz sum: " << hadronBeamEnergy-beamEnergy <<" and then " << hvSmeared.sumPz+pleptonOut.Pz()  <<" diff: "<< hadronBeamEnergy-beamEnergy -( hvSmeared.sumPz+pleptonOut.Pz()) <<endl;
-      
+      //      cout <<"3" <<endl;      
       qH=pleptonIn-qH;
       qL=pleptonIn-qL;
       qLH=pleptonIn-qLH;
@@ -772,11 +794,10 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       double W[8];
 
       TLorentzVector qElec=pleptonIn-pRecElectron;
-      
+      //      cout <<"4" <<endl;            
       for(int i=0;i<recTypeEnd;i++)
 	{
 	  //	  cout <<" rec type : "<< i <<endl;
-	  
 	  res[i]=getQz(a,b,kappa,usedy[i],qT2,Pz,Pe,usedQ2[i]);
 	  double qz=res[i].second;
 	  if(fabs(qElec.Pz()-res[i].second)>fabs(qElec.Pz()-res[i].first))
@@ -805,7 +826,8 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  q_bv[i]=(-1)*q_bv[i];
 	  W[i]=q_P[i].M();
 	}
-
+	  
+      //      cout <<"3" <<endl;
       //      cout <<"orig q: "<< printLVect(qOrig) <<endl;
         for(int i=0;i<recTypeEnd;i++)
 	{
@@ -816,9 +838,9 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       float WOrig=qOrig_P.M();
       if(WOrig < 0)
 	{
-	  cout <<"worig < 0, qOrig: " << printLVect(qOrig) <<", pleptOut " << recElectronParticle->Px <<", " <<recElectronParticle->Py <<" " << recElectronParticle->Pz <<" " <<recElectronParticle->E <<endl;
-	  cout <<"plept out: "<< printLVect(pleptonOut)<<endl;
-	  cout <<" orig W2: "<< W2 << " worig^2: "<< WOrig*WOrig<<endl;
+	  	  cout <<"worig < 0, qOrig: " << printLVect(qOrig) <<", pleptOut " << recElectronParticle->Px <<", " <<recElectronParticle->Py <<" " << recElectronParticle->Pz <<" " <<recElectronParticle->E <<endl;
+	  //	  cout <<"plept out: "<< printLVect(pleptonOut)<<endl;
+	  //	  cout <<" orig W2: "<< W2 << " worig^2: "<< WOrig*WOrig<<endl;
 	}
 
       TVector3 orig_bv=qOrig_P.BoostVector();
@@ -845,7 +867,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       realBoost.W=WOrig;
       realBoost.lv_q=qOrig;
       realBoost.lv_l=pleptonIn;
-
+      //      cout <<"5" <<endl;
 
       ///get real x, q2 bin
       int xBin=0;
@@ -872,13 +894,13 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  vector<PseudoJet> jetsRec;
 	  vector<PseudoJet> jetsReal;
 	  ////-----
-	  ClusterSequence* csRec;
-	  ClusterSequence* csReal;
+	  ClusterSequence* csRec=0;
+	  ClusterSequence* csReal=0;
 	  getJets(branchEFlowTrack, branchTrack,  branchEFlowPhoton, branchEFlowNeutralHadron, recBoost, realBoost, jetsRec,  jetsReal,  csRec,  csReal);
 
 
-
-	  
+	  //cout << " another rec type 1-" << i <<endl;
+	  //	  tbins
 	  ////---
 	  //	  cout <<"recType: " << recTypeNames[i] <<", we found " << jetsRec.size() <<" real: "<< jetsReal.size()<<endl;
 	    for (unsigned j = 0; j < jetsRec.size(); j++) {
@@ -897,12 +919,14 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	      //	      cout << "jet Real" << i << ":pt "<< jetsReal[i].pt() << ", rap "                    << jetsReal[i].rap() << ", phi " << jetsReal[i].phi() << endl;
 	      //	      vector<PseudoJet> constituents = jetsReal[i].constituents();
 	    }
+	    //	          cout <<"6" <<endl;
 	    if(jetsRec.size()>0 && jetsReal.size()>0)
 	      {
+		//I guess this looks at the leading jet?
 		float rapReal=jetsReal[0].rap();
 		float rapRec=jetsRec[0].rap();
 		float phiReal=jetsReal[0].phi();
-
+		//	          cout <<"6+" <<endl;
 		float phiRec=jetsRec[0].phi();
 		//				cout <<"phiReal: "<< phiReal << " phiRec: "<< phiRec <<endl;
 		float jetDist=sqrt((rapReal-rapRec)*(rapReal-rapRec)+(phiReal-phiRec)*(phiReal-phiRec));
@@ -914,43 +938,60 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 		    if(phiRec>TMath::Pi())
 		      phiRec-=2*TMath::Pi();
 		  }
+		//	      	          cout <<"6++" <<endl;
 		if(jetDist<1.0)
 		  {
 		    float ptReal=jetsReal[0].pt();
 		    float ptRec=jetsRec[0].pt();
-		    if(ptRec<minJetPt)
-		      break;
-		    int yBin=getBin(plots->yBins,y);
-		    int ptBin=getBin(plots->ptBins,ptReal);
-		    if(ptBin>=0)
+		    if(ptRec>minJetPt)
 		      {
-			plots->jetDiff[i][ptBin][yBin]->Fill(jetDist);
-			plots->jetEDiff[i][ptBin][yBin]->Fill(ptReal-ptRec);
+			int yBin=getBin(plots->yBins,y);
+			int ptBin=getBin(plots->ptBins,ptReal);
+			if(ptBin>=0)
+			  {
+			    plots->jetDiff[i][ptBin][yBin]->Fill(jetDist);
+			    plots->jetEDiff[i][ptBin][yBin]->Fill(ptReal-ptRec);
+			  }
 		      }
 		  }
 	      }
-
+	
+	    //	    cout <<"6+++" <<endl;
+	    //	    cout <<"about to delete: " <<csRec <<" and " << csReal <<endl;
 	    delete csRec;
 	    delete csReal;
+	    //	    cout <<"7" <<endl;
 	    
 	  if(W[i]*W[i]<W2Cut)
-	    continue;
+	    {
+	      //	      cout <<" failed W cut: "<< W[i] <<" cut: " << sqrt(W2Cut) <<endl;
+	      continue;
+	    }
+
+	  //      cout <<"8" <<endl;	  
 	  switch(i)
 	    {
 	    case truth:
 	      //	      	      cout <<"truth recboost: "<< printLVect(recBoost.lv_q) <<" realBoost: "<< printLVect(realBoost.lv_q) <<endl;
 	      //	      	      cout <<"rec W: "<< recBoost.W <<" real: "<< realBoost.W <<endl;
 	      //	      	      cout <<"rec bosot : "<< printVect(recBoost.breitBoost) <<" real: "<< printVect(realBoost.breitBoost) <<endl;
+	      //	      cout <<" pairs in truth" <<endl;
 	      getHadronPairs(pairsRec[i],pairsTrue[i],branchEFlowTrack,recBoost,realBoost,Pz,true,false,false);
 	      break;
 	    case gen:
+	      //	      cout <<"getting gen had pairs" <<endl;
 	      getHadronPairs(pairsRec[i],pairsTrue[i],branchParticle,recBoost,realBoost,Pz,true,true,false);
 	      break;
 	    case genNoAcc:
 	      getHadronPairs(pairsRec[i],pairsTrue[i],branchParticle,recBoost,realBoost,Pz,true,true,true);
 	      break;
 	    default:
-	      getHadronPairs(pairsRec[i],pairsTrue[i],branchEFlowTrack,recBoost,realBoost,Pz,false,false,false);
+	      if(i==elec)
+		{
+		  //		  		  cout <<"elec " <<endl;
+		}
+	      //let's use regular tracking, since we are anyways only interersted in pion
+	      getHadronPairs(pairsRec[i],pairsTrue[i],branchTrack,recBoost,realBoost,Pz,false,false,false, false);
 	    }
       ////-----
 	  ///	  	  cout <<"looking at rec pairs " <<endl;
@@ -958,7 +999,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 
 	  //	  cout <<" num pairs " << pairsRec[i].size() <<endl;
 	  //for asymmetry calculation, always have spin vector point up
-		  
+	  //      cout <<"9" <<endl;
 	  for(int j=0;j<pairsRec[i].size();j++)
 	    {
 	      int polarization=1.0;
@@ -972,17 +1013,33 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	      //	      spinVect.SetXYZ(0,polarization,0);	      
 	      if(!checkSanity(pairsTrue[i][j]))
 		{
-		  cout <<"true pair insane i:" <<i<<endl;
+		  //		  cout <<"true pair insane i:" <<i<<endl;
 		  continue;
 		}
 	      if( !checkSanity(pairsRec[i][j]))
 		{
-		  cout <<"rec pair insane " <<endl;
+		  //		  cout <<"rec pair insane " <<endl;
 		  continue;
 		}
 	      double meanWeight=0;
 	      double unc=0;
-	      //	      cout <<"getting weight for Q2: "<< Q2<< " M: "<< pairsTrue[i][j].M <<" x: " << x <<" z: "<< pairsTrue[i][j].z <<endl;
+	      if(i==elec)
+		{
+		  //		  cout <<"elec getting weight for Q2: "<< Q2<< " M: "<< pairsTrue[i][j].M <<" x: " << x <<" z: "<< pairsTrue[i][j].z <<endl;
+		  //		  cout <<"elec rec Q2: "<< Q2<< " M: "<< pairsRec[i][j].M <<" x: " << x <<" z: "<< pairsRec[i][j].z <<endl;
+		}
+	      if(i==gen)
+		{
+		  //		  cout <<"gen getting weight for Q2: "<< Q2<< " M: "<< pairsTrue[i][j].M <<" x: " << x <<" z: "<< pairsTrue[i][j].z <<endl;
+		  //		  cout <<"gen rec Q2: "<< Q2<< " M: "<< pairsRec[i][j].M <<" x: " << x <<" z: "<< pairsRec[i][j].z <<endl;
+		}
+	      if(i==truth)
+		{
+		  //		  cout <<"truth getting weight for Q2: "<< Q2<< " M: "<< pairsTrue[i][j].M <<" x: " << x <<" z: "<< pairsTrue[i][j].z <<endl;
+		  //		  cout <<"truth rec Q2: "<< Q2<< " M: "<< pairsRec[i][j].M <<" x: " << x <<" z: "<< pairsRec[i][j].z <<endl;
+		}
+
+	      //      cout <<"10" <<endl;
 	      m_weights->getWeight(sqrt(Q2),pairsTrue[i][j].M,x,pairsTrue[i][j].z,meanWeight,unc);
 	      //	      cout <<"done: " << meanWeight<< endl;
 
@@ -1000,9 +1057,10 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	      int yBin=getBin(plots->yBins,y);
 	      if(zBin < 0 || yBin < 0)
 		{
-		  cout <<"wrong z, y bin " <<endl;
+		  //		  cout <<"wrong z, y bin " <<endl;
 		  continue;
 		}
+	    
 	      //	      cout <<"zBin: "<< zBin << " yBin: "<< yBin <<" z: "<< pairsTrue[i][j].z<<" y: "<< y<<endl;
 
 	      if(i==truth)
@@ -1015,19 +1073,46 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 		  plots->phiRHistos[i][zBin][yBin]->Fill(pairsRec[i][j].phi_R);
 		  plots->pTHistos[i][zBin][yBin]->Fill(pairsRec[i][j].pT);
 		}
-	      
-	      ///	      	      cout <<"rec phiR:" << pairsRec[i][j].phi_R <<" real: "<< pairsTrue[i][j].phi_R <<" % diff: "<< (pairsRec[i][j].phi_R-pairsTrue[i][j].phi_R)/pairsTrue[i][j].phi_R<<endl;
-	      plots->ptMeans[i]->SetBinContent(xBin,q2Bin,plots->ptMeans[i]->GetBinContent(xBin,q2Bin)+pairsTrue[i][j].pT);
-	      //	      cout <<"filling with pt true: "<< pairsTrue[i][j].pT <<" rec: " << pairsRec[i][j].pT <<endl;
-	      plots->ptCounts[i]->SetBinContent(xBin,q2Bin,plots->ptCounts[i]->GetBinContent(xBin,q2Bin)+1);
-	      plots->ptDiffs[i]->SetBinContent(xBin,q2Bin,plots->ptDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].pT-pairsTrue[i][j].pT)/fabs(pairsTrue[i][j].pT));
-	      //	      	      cout <<"filling with z1: "<< pairsTrue[i][j].z1 <<" z2: "<< pairsTrue[i][j].z2 <<endl;
-	      //      	      cout <<"filling with rec z1: "<< pairsRec[i][j].z1 <<" z2: "<< pairsRec[i][j].z2 <<endl;
-	      plots->zMeans[i]->SetBinContent(xBin,q2Bin,plots->zMeans[i]->GetBinContent(xBin,q2Bin)+pairsTrue[i][j].z1);
-	      plots->zMeans[i]->SetBinContent(xBin,q2Bin,plots->zMeans[i]->GetBinContent(xBin,q2Bin)+pairsTrue[i][j].z2);
-	      plots->zDiffs[i]->SetBinContent(xBin,q2Bin,plots->zDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].z1-pairsTrue[i][j].z1)/fabs(pairsTrue[i][j].z1));
-	      plots->zDiffs[i]->SetBinContent(xBin,q2Bin,plots->zDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].z2-pairsTrue[i][j].z2)/fabs(pairsTrue[i][j].z2));
-	      plots->phiRMeans[i]->SetBinContent(xBin,q2Bin,plots->phiRMeans[i]->GetBinContent(xBin,q2Bin)+pairsTrue[i][j].phi_R);
+
+
+
+	      if(pairsRec[i][j].z>0.4)
+		{
+////	      ///print pairs
+	      if(i==truth)
+		{
+		  //		  		  cout <<"gen with Acc x: "<< x << " Q2: " << Q2  << endl;
+		}
+	      if(i==elec)
+		{
+		  //		  		  cout <<"standard elec x: "<< usedx[i] <<" Q2: "<< usedQ2[i]<<endl;
+		}
+	      if(i==gen || i==elec)
+		{
+
+		  //		  cout <<"got pair with z: " << pairsRec[i][j].z << " M: "<< pairsRec[i][j].M <<" weight: "<< pairsRec[i][j].weight <<endl;
+
+		}
+		}
+	      ////////
+	      ////////put some cuts on here before we fill the diff plots
+	      ////////
+	      ////////
+	      if(pairsRec[i][j].z>0.2 && y>0.005)
+		{
+		  ///	      	      cout <<"rec phiR:" << pairsRec[i][j].phi_R <<" real: "<< pairsTrue[i][j].phi_R <<" % diff: "<< (pairsRec[i][j].phi_R-pairsTrue[i][j].phi_R)/pairsTrue[i][j].phi_R<<endl;
+		  plots->ptMeans[i]->SetBinContent(xBin,q2Bin,plots->ptMeans[i]->GetBinContent(xBin,q2Bin)+pairsTrue[i][j].pT);
+		  //	      cout <<"filling with pt true: "<< pairsTrue[i][j].pT <<" rec: " << pairsRec[i][j].pT <<endl;
+		  plots->ptCounts[i]->SetBinContent(xBin,q2Bin,plots->ptCounts[i]->GetBinContent(xBin,q2Bin)+1);
+		  plots->ptDiffs[i]->SetBinContent(xBin,q2Bin,plots->ptDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].pT-pairsTrue[i][j].pT)/fabs(pairsTrue[i][j].pT));
+		  //      	      cout <<"filling with z1: "<< pairsTrue[i][j].z1 <<" z2: "<< pairsTrue[i][j].z2 <<endl;
+		  //		        	      cout <<"filling with rec z1: "<< pairsRec[i][j].z1 <<" z2: "<< pairsRec[i][j].z2 <<endl;
+		  plots->zMeans[i]->SetBinContent(xBin,q2Bin,plots->zMeans[i]->GetBinContent(xBin,q2Bin)+pairsTrue[i][j].z1);
+		  plots->zMeans[i]->SetBinContent(xBin,q2Bin,plots->zMeans[i]->GetBinContent(xBin,q2Bin)+pairsTrue[i][j].z2);
+		  plots->zDiffs[i]->SetBinContent(xBin,q2Bin,plots->zDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].z1-pairsTrue[i][j].z1)/fabs(pairsTrue[i][j].z1));
+		  plots->zDiffs[i]->SetBinContent(xBin,q2Bin,plots->zDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].z2-pairsTrue[i][j].z2)/fabs(pairsTrue[i][j].z2));
+		  plots->phiRMeans[i]->SetBinContent(xBin,q2Bin,plots->phiRMeans[i]->GetBinContent(xBin,q2Bin)+pairsTrue[i][j].phi_R);
+		}
 	      //normalizing phiR doesn't make sense, since we get a lot of larg numbers then for small angles...
 	      if(i==gen)
 		{
@@ -1046,9 +1131,12 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	      plots->phiRDiffs[i]->SetBinContent(xBin,q2Bin,plots->phiRDiffs[i]->GetBinContent(xBin,q2Bin)+fabs(pairsRec[i][j].phi_R-pairsTrue[i][j].phi_R));
 	    } //end of pairs
 	      
-
+	
 	  //now part of hadron pairs
 	  //	  plots->treeFields[i].polarization=polarization;
+	  	  
+	  plots->treeFields[i].trueX=x;
+	  plots->treeFields[i].trueQ2=Q2;
 	  plots->treeFields[i].Q2=usedQ2[i];
 	  plots->treeFields[i].x=usedx[i];
 	  plots->treeFields[i].y=usedy[i];
@@ -1057,9 +1145,25 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 	  plots->treeFields[i].evtNr=entry;
 
 	      //	      cout<<"trying to fill tree" <<endl;
-	
-	  fillTree(plots->diHadTrees[i],plots->treeFields[i],pairsRec[i],q[i],q_bv[i],pleptonIn,pairsTrue[i],qOrig,orig_bv);
-	  //	  cout <<" done looking at rec pairs.. " << endl;
+	  if(i==elec)
+	    {
+	      //	      cout <<" elec event with x: "<< usedx[i] <<" Q2: "<< usedQ2[i]<<endl;
+	      fillTree(plots->diHadTrees[i],plots->treeFields[i],pairsRec[i],q[i],q_bv[i],pleptonIn,pairsTrue[i],qOrig,orig_bv,false);
+	    }
+	  else
+	    {if(i==truth)
+		{
+		  //		  cout <<" truth event with x: "<< usedx[i] <<" Q2: "<< usedQ2[i]<<endl;
+		  fillTree(plots->diHadTrees[i],plots->treeFields[i],pairsRec[i],q[i],q_bv[i],pleptonIn,pairsTrue[i],qOrig,orig_bv,false);
+
+		}
+	      else
+		{
+	      fillTree(plots->diHadTrees[i],plots->treeFields[i],pairsRec[i],q[i],q_bv[i],pleptonIn,pairsTrue[i],qOrig,orig_bv,false);
+		}
+		}
+
+
 	}
       
       ////----
@@ -1240,6 +1344,10 @@ int main(int argc, char** argv)
   
   int beamEnergyI = atoi(argv[2]);
   int hadronBeamEnergyI = atoi(argv[3]);
+
+  //1: first half, 2: second half 0: all
+  int whichHalf = atoi(argv[5]);
+  
   double beamEnergy=0.0+beamEnergyI;
   double hadronBeamEnergy=0.0+hadronBeamEnergyI;
   
@@ -1290,9 +1398,10 @@ int main(int argc, char** argv)
   plots->yBins.push_back(2.0);
   
   cout <<" book histogram: " << endl;
-  BookHistograms(result, plots,beamEnergyI,hadronBeamEnergyI,argv[4]);
+  sprintf(buffer,"%s_%d",argv[4],whichHalf);
+  BookHistograms(result, plots,beamEnergyI,hadronBeamEnergyI,buffer);
   cout <<" analyze events: " << endl;
-  AnalyzeEvents(treeReader, plots,beamEnergy, hadronBeamEnergy,sqrtS);
+  AnalyzeEvents(treeReader, plots,beamEnergy, hadronBeamEnergy,sqrtS,whichHalf);
     
   myFile->Write();
 
@@ -1314,6 +1423,8 @@ int main(int argc, char** argv)
   c1.SetLogy();
   c1.SetLogx();
   cout <<"first... "<<endl;  
+
+
 
   plots->Q2VsXSmear->SetMaximum(1.0);
   plots->Q2VsXSmear->SetMinimum(0.0);
@@ -1611,6 +1722,8 @@ int main(int argc, char** argv)
   for(int i=0;i<recTypeEnd;i++)
     {
 
+      plots->ptDiffs[i]->SetMinimum(0.0);
+      plots->ptDiffs[i]->SetMaximum(3.0);
       plots->ptMeans[i]->Divide(plots->ptCounts[i]);
       plots->ptDiffs[i]->Divide(plots->ptCounts[i]);
 
@@ -1629,7 +1742,7 @@ int main(int argc, char** argv)
       plots->zDiffs[i]->SetMinimum(0.0);
       plots->phiRDiffs[i]->SetMaximum(1.0);
       plots->phiRDiffs[i]->SetMinimum(0.0);
-
+      plots->XCorrElec->SaveAs("xcorrElec.root");
       
       sprintf(buffer,"ptMeans_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
       plots->ptMeans[i]->Draw("colz");

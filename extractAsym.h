@@ -43,10 +43,13 @@ pair<double,double> getA(double** vals, vector<float>& phiBins,int kinBin, const
   char buffer[200];
   
   int numPhiBins=phiBins.size();
+  cout <<"numphi bins: " << numPhiBins <<endl;
   for(int phiBin=0;phiBin<phiBins.size();phiBin++)
     {
+      cout <<" getting nup for bin " << phiBin <<endl;
       double Nup=vals[phiBin][1];
       double Ndown=vals[phiBin][0];
+      cout <<"nup+ndown: "<< Nup+Ndown <<endl;
       double A=(Nup-Ndown)/(Nup+Ndown);
       
       cout <<"phiBin: "<< phiBin << " Nup: "<< Nup <<" Ndown: " << Ndown <<" A: " << A <<endl;
@@ -73,7 +76,7 @@ pair<double,double> getA(double** vals, vector<float>& phiBins,int kinBin, const
   f1.SetParameters(0,0.0);
   g.Fit(&f1);
   g.Draw("AP");
-  c1.SaveAs(buffer);
+    c1.SaveAs(buffer);
   double A=f1.GetParameter(0);
   double err=f1.GetParError(0);
   return pair<double,double>(A,err);

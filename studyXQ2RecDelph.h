@@ -11,6 +11,7 @@ using namespace std;
 using namespace std;
 const int maxFields=1000;
 
+//ClusterSequence* csRec;
 
 class Tools {
   public:
@@ -51,7 +52,9 @@ class Tools {
 
 struct diHadTreeFields{
   float Q2;
+  float trueQ2;
   float x;
+  float trueX;
   float y;
   float W;
   float Mx;
@@ -69,7 +72,11 @@ struct diHadTreeFields{
   
   float phiH[maxFields];
   float z[maxFields];
+  float z1[maxFields];
+  float z2[maxFields];
+  float trueZ[maxFields];
   float M[maxFields];
+  float trueM[maxFields];
   float theta[maxFields];
   float xF[maxFields];
   float pT[maxFields];
@@ -104,8 +111,9 @@ struct Kins
 };
 
 
-void fillTree(TTree* tree, diHadTreeFields& fields,vector<HadronPair>& pairs,const TLorentzVector& qLab,const TVector3& breitBoost,const TLorentzVector& leptonInLab, vector<HadronPair>& pairsTrue, const TLorentzVector& qLabTrue, const TVector3& breitBoostTrue)
+void fillTree(TTree* tree, diHadTreeFields& fields,vector<HadronPair>& pairs,const TLorentzVector& qLab,const TVector3& breitBoost,const TLorentzVector& leptonInLab, vector<HadronPair>& pairsTrue, const TLorentzVector& qLabTrue, const TVector3& breitBoostTrue, bool print=false)
 {
+  //  cout <<"ft2 " <<endl;
   //q=l-l'-->l'=l-q
   TLorentzVector leptonOut=leptonInLab-qLab;
   TLorentzVector leptonOutTrue=leptonInLab-qLabTrue;
@@ -151,6 +159,8 @@ void fillTree(TTree* tree, diHadTreeFields& fields,vector<HadronPair>& pairs,con
       double weight=pairs[i].weight;
       double unc=pairs[i].weightUncert;
       double truePhiR=pairsTrue[i].phi_R;
+      double trueZ=pairsTrue[i].z;
+      double trueM=pairsTrue[i].M;
       TVector3 spinVect;
       //      cout <<"polarizaiton for pair " << i <<" " << pairs[i].polarization<<endl;
       //      spinVect.SetXYZ(0,pairs[i].polarization,0);
@@ -161,13 +171,20 @@ void fillTree(TTree* tree, diHadTreeFields& fields,vector<HadronPair>& pairs,con
 
       //  cout <<"sin pos phiS: "<< sin(phiSPos) <<" of sum: "<< sin(phiSPos+pairs[i].phi_R)<<endl;
       //  cout <<"sin neg phiS: "<< sin(phiSNeg) <<" of sum: "<< sin(phiSNeg+pairs[i].phi_R)<<endl;
-      
+      if(print)
+	{
+	  cout <<"fill tree with  had z: "<< pairs[i].z <<" M: " << pairs[i].M <<" weight; "<< weight<<endl;
+	}
       fields.phiR[i]=pairs[i].phi_R;
       fields.phiS[i]=phiS;
       fields.truePhiS[i]=truePhiS;
       fields.truePhiR[i]=truePhiR;
       fields.phiH[i]=pairs[i].phi_h;
       fields.z[i]=pairs[i].z;
+      fields.trueZ[i]=trueZ;
+      fields.trueM[i]=trueM;
+      fields.z1[i]=pairs[i].z1;
+      fields.z2[i]=pairs[i].z2;
       fields.xF[i]=pairs[i].xF;
       fields.xF[i]=pairs[i].xF;
       fields.theta[i]=pairs[i].m_theta;
@@ -186,12 +203,16 @@ void fillTree(TTree* tree, diHadTreeFields& fields,vector<HadronPair>& pairs,con
       fields.weightLowerLimit[i]=1+pairs[i].polarization*(weight-unc)*fields.polarization[i]*sin(truePhiR+truePhiS);
     }
   tree->Fill();
+  //  cout << " done ft 2 " << endl;
 }
 
 void doBranching(TTree* tree, diHadTreeFields& fields)
 {
+  cout <<" begin fill tree " <<endl;
   tree->Branch("Q2",&(fields.Q2),"Q2/F");
+  tree->Branch("trueQ2",&(fields.trueQ2),"trueQ2/F");
   tree->Branch("x",&(fields.x),"x/F");
+  tree->Branch("trueX",&(fields.trueX),"trueX/F");
   tree->Branch("y",&(fields.y),"y/F");
   tree->Branch("W",&(fields.W),"W/F");
   tree->Branch("Mx",&(fields.Mx),"Mx/F");
@@ -207,6 +228,11 @@ void doBranching(TTree* tree, diHadTreeFields& fields)
 
   tree->Branch("phiH",(fields.phiH),"phiH[numHadronPairs]/F");
   tree->Branch("z",(fields.z),"z[numHadronPairs]/F");
+  tree->Branch("trueZ",(fields.trueZ),"trueZ[numHadronPairs]/F");
+  tree->Branch("trueM",(fields.trueM),"trueM[numHadronPairs]/F");
+  
+  tree->Branch("z1",(fields.z1),"z1[numHadronPairs]/F");
+  tree->Branch("z2",(fields.z2),"z2[numHadronPairs]/F");
   tree->Branch("M",(fields.M),"M[numHadronPairs]/F");
   tree->Branch("theta",(fields.theta),"theta[numHadronPairs]/F");
   tree->Branch("xF",(fields.xF),"xF[numHadronPairs]/F");
@@ -217,7 +243,7 @@ void doBranching(TTree* tree, diHadTreeFields& fields)
   tree->Branch("weightUpperLimit",(fields.weightUpperLimit),"weightUpperLimit[numHadronPairs]/F");
   tree->Branch("weightLowerLimit",(fields.weightLowerLimit),"weightLowerLimit[numHadronPairs]/F");
   tree->Branch("pairType",(fields.pairType),"pairType[numHadronPairs]/I");
-  
+  cout <<" done fill tree " << endl;
 }
 
 pair<double,double> getQz(double a, double b, double kappa, double y, double qT2, double Pz, double Pe,double Q2)
@@ -432,7 +458,7 @@ struct boostVars{
 
 
 //HadronicVars getHadronicVars(TClonesArray* branchElectron,TClonesArray* branchEFlowTrack, TClonesArray* branchEFlowPhoton, TClonesArray* branchEFlowNeutralHadron, TClonesArray* branchTrack, TClonesArray* branchParticles)
-void getJets(TClonesArray* branchEFlowTrack, TClonesArray* branchTrack, TClonesArray* branchEFlowPhoton, TClonesArray* branchEFlowNeutralHadron, boostVars recBoost, boostVars realBoost, vector<PseudoJet>& jetsRec, vector<PseudoJet>& jetsReal, ClusterSequence* csRec, ClusterSequence* csReal)
+void getJets(TClonesArray* branchEFlowTrack, TClonesArray* branchTrack, TClonesArray* branchEFlowPhoton, TClonesArray* branchEFlowNeutralHadron, boostVars recBoost, boostVars realBoost, vector<PseudoJet>& jetsRec, vector<PseudoJet>& jetsReal, ClusterSequence*& csRec, ClusterSequence*& csReal)
 {
   vector<PseudoJet> particlesRec;
   vector<PseudoJet> particlesReal;
@@ -443,7 +469,7 @@ void getJets(TClonesArray* branchEFlowTrack, TClonesArray* branchTrack, TClonesA
     {
       Track* t=(Track*)branchEFlowTrack->At(i);
 
-      if(fabs(t->Eta)>4.0 || (fabs(t->P)<0.01))
+      if(fabs(t->Eta)>3.5 || (fabs(t->P)<0.01))
 	{
 	  continue;
 	}
@@ -558,33 +584,48 @@ void getJets(TClonesArray* branchEFlowTrack, TClonesArray* branchTrack, TClonesA
   contrib::CentauroPlugin centPlugin(R);
   JetDefinition jet_def(&centPlugin);
   // run the clustering, extract the jets
+  //  cout <<" new csRec " <<endl;
   csRec =new ClusterSequence(particlesRec, jet_def);
   jetsRec = sorted_by_pt(csRec->inclusive_jets());
-
+  //  cout <<" new csReal " <<endl;
   csReal=new ClusterSequence(particlesReal, jet_def);
   jetsReal = sorted_by_pt(csReal->inclusive_jets());
 
 }
 
 
-void getHadronPairs(vector<HadronPair>& pairsRec, vector<HadronPair>& pairsTrue,TClonesArray* branchTracks, boostVars recBoost, boostVars realBoost, double targetPz, bool useMatchedTruth, bool useGen, bool useNoAcc)
+void getHadronPairs(vector<HadronPair>& pairsRec, vector<HadronPair>& pairsTrue,TClonesArray* branchTracks, boostVars recBoost, boostVars realBoost, double targetPz, bool useMatchedTruth, bool useGen, bool useNoAcc, bool print=false)
   {
-    
+
+    double m_pi=0.139570;
     //      for(int i=6;i<branchParticles->GetEntries();i++)
     //    {
     //      GenParticle* mParticle=((GenParticle*)branchParticles->At(i));
     //      if(mParticle->Status!=1)
     //	continue;
-
+    //    cout <<"get hp "<<endl;
   for(int i=0;i<branchTracks->GetEntries();i++)
     {
+      
      TObject* t=branchTracks->At(i);
       TLorentzVector lv1;
 
       if(useGen)
+	{
 	lv1=((GenParticle*)t)->P4();
+	double E=sqrt(lv1.Px()*lv1.Px()+lv1.Py()*lv1.Py()+lv1.Pz()*lv1.Pz()+m_pi*m_pi);
+	//		cout << "lorentz e: "<< lv1.E() <<" my calc: "<< E <<endl;
+	lv1.SetPxPyPzE(lv1.Px(),lv1.Py(),lv1.Pz(),E);
+	}
       else
-	lv1=((Track*)t)->P4();
+	{
+	  lv1=((Track*)t)->P4();
+	  double E=sqrt(lv1.Px()*lv1.Px()+lv1.Py()*lv1.Py()+lv1.Pz()*lv1.Pz()+m_pi*m_pi);
+	  //		cout << "lorentz e: "<< lv1.E() <<" my calc: "<< E <<endl;
+	  
+	  lv1.SetPxPyPzE(lv1.Px(),lv1.Py(),lv1.Pz(),E);
+
+	}
       
       //      Track* t=(Track*)branchTracks->At(i);
       if(!useNoAcc)
@@ -619,10 +660,22 @@ void getHadronPairs(vector<HadronPair>& pairsRec, vector<HadronPair>& pairsTrue,
 	    TLorentzVector lv2;
 	    
 	    if(useGen)
-	      lv2=((GenParticle*)t2)->P4();
+	      {
+		lv2=((GenParticle*)t2)->P4();
+		double E=sqrt(lv2.Px()*lv2.Px()+lv2.Py()*lv2.Py()+lv2.Pz()*lv2.Pz()+m_pi*m_pi);
+
+		//		cout << "gen lorentz e: "<< lv2.E() <<" my calc: "<< E <<endl;
+		lv2.SetPxPyPzE(lv2.Px(),lv2.Py(),lv2.Pz(),E);
+	      }
 	    else
-	      lv2=((Track*)t2)->P4();
-	    
+	      {
+		lv2=((Track*)t2)->P4();
+		double E=sqrt(lv2.Px()*lv2.Px()+lv2.Py()*lv2.Py()+lv2.Pz()*lv2.Pz()+m_pi*m_pi);
+		//		cout << "lorentz e: "<< lv2.E() <<" my calc: "<< E <<endl;
+		
+		lv2.SetPxPyPzE(lv2.Px(),lv2.Py(),lv2.Pz(),E);
+	      }
+	    //	    cout <<"looking at second track with  px " << lv2.Px() << " y: "<< lv2.Py() <<" z: "<< lv2.Pz() <<" e: "<< lv2.E()<<endl;
 		  //		  Track* t2=(Track*)branchTracks->At(j);
 		  //	    TLorentzVector track_mom2=t2->P4();
 	    GenParticle* tp2 = 0;
@@ -633,7 +686,7 @@ void getHadronPairs(vector<HadronPair>& pairsRec, vector<HadronPair>& pairsTrue,
 
 	    if(!useNoAcc)
 	      {
-		if(fabs(lv2.Eta())>4.0 || (fabs(lv2.P())<0.01))
+		if(fabs(lv2.Eta())>3.5 || (fabs(lv2.P())<0.01))
 		  {
 		    continue;
 		  }
@@ -647,10 +700,21 @@ void getHadronPairs(vector<HadronPair>& pairsRec, vector<HadronPair>& pairsTrue,
 	    
 	    TLorentzVector real1=tp->P4();
 	    TLorentzVector real2=tp2->P4();
+      if(print)
+	{
+	  cout <<"looking at track1 with  px " << lv1.Px() << " y: "<< lv1.Py() <<" z: "<< lv1.Pz() <<" e: "<< lv1.E()<<endl;
+	  cout <<"looking at track2 with  px " << lv2.Px() << " y: "<< lv2.Py() <<" z: "<< lv2.Pz() <<" e: "<< lv2.E()<<endl;
+	  cout <<"looking at true track1 with  px " << real1.Px() << " y: "<< real1.Py() <<" z: "<< real1.Pz() <<" e: "<< real1.E()<<endl;
+	  cout <<"true looking at track2 with  px " << real2.Px() << " y: "<< real2.Py() <<" z: "<< real2.Pz() <<" e: "<< real2.E()<<endl;
+
+	}
 	    
 	    HadronPair pairRec(lv1,lv2,recBoost.breitBoost,recBoost.W,recBoost.lv_q,recBoost.lv_l,targetPz);
 	    HadronPair pairTruth(real1,real2,realBoost.breitBoost,realBoost.W,realBoost.lv_q,realBoost.lv_l,targetPz);
-
+	    if(print)
+	      {
+		cout <<"rec M " << pairRec.M <<" true M: "<< pairTruth.M <<" rec z: "<< pairRec.z <<" true M: "<< pairTruth.z <<endl;
+}
 	    //	    cout <<" real1: "<<  printLVect(real1)<< "real2: "<< printLVect(real2) <<" realBoost: "<< printVect(realBoost.breitBoost) <<" W: "<< realBoost.W <<" lvQ: "<< printLVect(realBoost.lv_q) <<" lvL: " << printLVect(realBoost.lv_l) <<" target Pz " <<endl;
 	    if(!checkSanity(pairTruth))
 		{
@@ -672,7 +736,14 @@ void getHadronPairs(vector<HadronPair>& pairsRec, vector<HadronPair>& pairsTrue,
 	      }
 	    //	    cout <<"combining " << printLVect(track_mom) <<" and " << printLVect(track_mom2) <<endl;
 	    //	    cout <<"combining true " << printLVect(real1) <<" and " << printLVect(real2) <<endl;
-	    pairsRec.push_back(pairRec);
+	    if(useMatchedTruth)
+	      {
+		pairsRec.push_back(pairTruth);
+	      }
+	    else
+	      {
+		pairsRec.push_back(pairRec);
+	      }
 	    pairsTrue.push_back(pairTruth);
 	    //	    cout <<"ret " <<endl; 
 	  }
