@@ -45,7 +45,7 @@ int main(int argc, char** argv)
   double minM=0.1;
   ofstream outFile;
   outFile.open ("extractionOutput.txt");
-  bool useRealAsym=false;
+  bool useRealAsym=true;
   //plot the inner pad of the projections vs m (otherwise z)
   bool vsM=true;
   int minCounts=10;
@@ -118,7 +118,8 @@ string recTypeNames[]={"elec","generatedWAcc","truth","hadronic","da","mixed","m
       cout <<" adding q2Bin: "<< pow(10,i/q2BinsPerDecade)<<endl;
       Q2Bins.push_back(pow(10,+i/q2BinsPerDecade));
     }
-	 */    Q2Bins.push_back(1000);
+    Q2Bins.push_back(1000);
+	 */
 	 Q2Bins.push_back(10.0);
 Q2Bins.push_back(100000);
 //   Q2Bins.push_back(100);
@@ -147,9 +148,9 @@ Q2Bins.push_back(100000);
 ////  xBins.push_back(100.00);
 ////  
   
-    zBins.push_back(0.3);
+///    zBins.push_back(0.3);
   //            zBins.push_back(0.35);
-         zBins.push_back(0.4);
+       ///         zBins.push_back(0.4);
 	//                  zBins.push_back(0.45);
 	 ///		zBins.push_back(0.5);
 	 ///		zBins.push_back(0.6);
@@ -158,14 +159,14 @@ Q2Bins.push_back(100000);
 	 //		zBins.push_back(0.9);
 	zBins.push_back(100.0);
       
-	mBins.push_back(0.3);
-	mBins.push_back(0.5);
-	mBins.push_back(0.6);
-	mBins.push_back(0.7);
-	mBins.push_back(0.8);
-        mBins.push_back(0.9);
-  mBins.push_back(1.2);
-  mBins.push_back(1.5);
+	//	mBins.push_back(0.3);
+	///	mBins.push_back(0.5);
+	//	mBins.push_back(0.6);
+	///	mBins.push_back(0.7);
+	////	mBins.push_back(0.8);
+	///        mBins.push_back(0.9);
+	///         mBins.push_back(1.2);
+	////  mBins.push_back(1.5);
   mBins.push_back(2000.0);
   cout <<"mbins size: "<< mBins.size() <<endl;
 
@@ -192,18 +193,24 @@ Q2Bins.push_back(100000);
 
   //let's do this just for the electrons
   double****** countsAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins,16,2);
+  double****** countsAllTrueAng=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins,16,2);
+  double****** countsAllTrueAngAndKin=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins,16,2);
   double****** countsUpperAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins,16,2);
   double****** countsLowerAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins,16,2);
 
   double **** asymAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+  double **** asymAllTrueAng=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+  double **** asymAllTrueAngAndKin=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
   double **** asymErrAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+  double **** asymErrAllTrueAng=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+  double **** asymErrAllTrueAngAndKin=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
   double **** asymUpperAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
   double **** asymLowerAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
 
   enum kinBin{kinBinQ2,kinBinX,kinBinZ,kinBinM,kinBinEnd};
     //try to just take the mean weight, instead of the value of the actual fit
-  double **** meanWeightAll
-    =allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+  double **** meanWeightAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+    double **** meanWeightAllTrueFromElec=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
     double **** meanWeightAllTrue=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
     double **** meanWeightUncAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
   double ***** kinMeansAll=allocateArray<double>(4,numQ2Bins,numXBins,numZBins,numMBins);
@@ -227,7 +234,7 @@ Q2Bins.push_back(100000);
   const int mBinning=kinBinM;
 
   //temporarily..
-  int numPhiBins=8;
+  int numPhiBins=16;
   for(int i=0;i<numPhiBins;i++)
     {
       float bin=(i+1)*2*TMath::Pi()/numPhiBins;
@@ -309,7 +316,9 @@ Q2Bins.push_back(100000);
 	      
 	      mTrees[treeIndex]->GetEntry(ie);
 	      double Q2=treeFields[treeIndex].Q2;
+	      double trueQ2=treeFields[treeIndex].trueQ2;
 	      double x=treeFields[treeIndex].x;
+	      double trueX=treeFields[treeIndex].trueX;
 	      //	      cout <<" x: "<< x <<" Q2: "<< Q2 <<endl;
 	      //needed to incorporate files with different Q2 ranges
 	      if(Q2< minQ2 || Q2> maxQ2)
@@ -324,7 +333,9 @@ Q2Bins.push_back(100000);
 	      if(debug)
 		cout <<" Q2: "<< Q2 <<" x: "<< x <<endl;
 	      int Q2Bin=getBin(Q2Bins,Q2);
+	      int trueQ2Bin=getBin(Q2Bins,trueQ2);
 	      int xBin=getBin(xBins,x);
+	      int trueXBin=getBin(xBins,trueX);
 	      if(xBin==0 && Q2Bin==0)
 		{
 		  //		  cout <<"we have xbin 0 and q2 ==0 " <<endl;
@@ -414,8 +425,11 @@ Q2Bins.push_back(100000);
 		    }
 	      
 		  int zBin=getBin(zBins,treeFields[treeIndex].z[iPair]);
+		  int trueZBin=getBin(zBins,treeFields[treeIndex].trueZ[iPair]);
 		  int mBin=getBin(mBins,treeFields[treeIndex].M[iPair]);
+		  int trueMBin=getBin(mBins,treeFields[treeIndex].trueM[iPair]);
 		  float ang=treeFields[treeIndex].phiR[iPair]+treeFields[treeIndex].phiS[iPair];
+		  float trueAng=treeFields[treeIndex].truePhiR[iPair]+treeFields[treeIndex].truePhiS[iPair];
 		  //	      float ang=treeFields[treeIndex].phiR[iPair];
 	      //	      	      	      float ang=treeFields[treeIndex].phiS[iPair];
 		  //	            cout <<"phiS: "<< ang <<endl;
@@ -432,15 +446,25 @@ Q2Bins.push_back(100000);
 		    {
 		      ang+=(2*TMath::Pi());
 		    }
+		  while(trueAng>2*TMath::Pi())
+		    {
+		      trueAng-=(2*TMath::Pi());
+		    }
+		  while(trueAng<0)
+		    {
+		      trueAng+=(2*TMath::Pi());
+		    }
+
 		  if(debug)
 		    cout <<" weight: "<< treeFields[treeIndex].weight[iPair] <<" upper: " << treeFields[treeIndex].weightUpperLimit[iPair] <<" lower: "<< treeFields[treeIndex].weightLowerLimit[iPair]<<endl;
 
-		  if(isnan(ang))
+		  if(isnan(ang) || isnan(trueAng))
 		    {
 		      //		      cout <<" ang is nan" <<endl;
-		    continue;
+		      continue;
 		    }
 		  int phiBin=getBin(phiBins,ang);
+		  int truePhiBin=getBin(phiBins,trueAng);
 		  
 		  float weight=treeFields[treeIndex].weight[iPair];
 		  
@@ -546,6 +570,9 @@ Q2Bins.push_back(100000);
 			cout <<"2>>>" <<endl;
 		      
 		      countsAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex]+=weight*weightFile;
+		      countsAllTrueAng[Q2Bin][xBin][zBin][mBin][truePhiBin][polIndex]+=weight*weightFile;
+		      //don't need to recalculate the weight, just put it at the correct kinematics...
+		      countsAllTrueAng[trueQ2Bin][trueXBin][trueZBin][trueMBin][truePhiBin][polIndex]+=weight*weightFile;
 		      countsUpperAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex]+=weightFile*treeFields[treeIndex].weightUpperLimit[iPair];
 		      countsLowerAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex]+=weightFile*treeFields[treeIndex].weightLowerLimit[iPair];
 		      kinCountsNoFileWeight[Q2Bin][xBin][zBin][mBin]+=1;
@@ -706,18 +733,23 @@ Q2Bins.push_back(100000);
 		{
 		  //	      pair<double,double> fitRes= getA(locCounts[mean], phiBins,kinBin,recTypeNames[i].c_str(),boundNames[iBound].c_str(),binning);
 		  //	      		  countsAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex];
-		  
 		  pair<double,double> fitRes=getA(countsAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_mean",0);
+		  pair<double,double> fitResTrueAng=getA(countsAllTrueAng[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_mean",0);
+		  pair<double,double> fitResTrueAngAndKin=getA(countsAllTrueAngAndKin[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_mean",0);
 		  pair<double,double> fitResUpper=getA(countsUpperAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_upper",0);
 		  pair<double,double> fitResLower=getA(countsLowerAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_lower",0);
 
 		  cout <<"fit for all q2bin: "<< q2Bin <<" xBin: "<< xBin <<" zBin " << zBin <<" mBin: "<< mBin << " A: " <<fitRes.first<<endl;
 		  
 		  asymAll[q2Bin][xBin][zBin][mBin]=fitRes.first;
+		  asymAllTrueAng[q2Bin][xBin][zBin][mBin]=fitResTrueAng.first;
+		  asymAllTrueAngAndKin[q2Bin][xBin][zBin][mBin]=fitResTrueAngAndKin.first;
 		  asymUpperAll[q2Bin][xBin][zBin][mBin]=fitResUpper.first;
 		  asymLowerAll[q2Bin][xBin][zBin][mBin]=fitResLower.first;
 		  //only care for uncertainties of the mean asym
 		  asymErrAll[q2Bin][xBin][zBin][mBin]=fitRes.second;
+		  asymErrAllTrueAng[q2Bin][xBin][zBin][mBin]=fitResTrueAng.second;
+		  asymErrAllTrueAngAndKin[q2Bin][xBin][zBin][mBin]=fitResTrueAngAndAndKin.second;
 		}
 	    }
 	}
@@ -1046,6 +1078,9 @@ Q2Bins.push_back(100000);
 		double ex[40];
 		double y[40];
 		double yTrue[40];
+		double yTrueKins[40];
+		double yTrueAng[40];
+		double yTrueAngAndKin[40];
 		double ySys[40];
 		double ey[40];
 		double meanWeight=0;
@@ -1116,6 +1151,8 @@ Q2Bins.push_back(100000);
 		      {cout <<"setting real asym for q2: "<< iQ <<" ix: "<< iX <<" iz: " << iz <<" im: "<< im <<" to " << asymAll[iQ][iX][iz][im]<<endl;
 			y[filledInnerBins]=asymAll[iQ][iX][iz][im];
 			yTrue[filledInnerBins]=locMeanWeightAllTrue;
+			yTrueAng[filledInnerBins]=asymAllTrueAng[iQ][iX][iz][im];
+			yTrueAngAndKin[filledInnerBins]=asymAllTrueAngAndKin[iQ][iX][iz][im];
 		      }
 		    else
 		      {
@@ -1154,7 +1191,7 @@ Q2Bins.push_back(100000);
 		    if(yTrue[filledInnerBins]>0)
 		      rel=(y[filledInnerBins]-yTrue[filledInnerBins])/yTrue[filledInnerBins];
 		    
-		    //		    		    outFile << iQ <<" " << iX << " " <<im <<" " << iz <<  " " << locQ2 <<" " << locX << " " << locM <<" " <<locZ << " " <<  y[filledInnerBins] <<" +- "<< ey[filledInnerBins] << " +- " << y[filledInnerBins]-yTrue[filledInnerBins] <<" rel: " << rel << " " <<relSimuUncert  <<  " "<<kinCountsNoFileWeight[iQ][iX][iz][im]<< " true: " << yTrue[filledInnerBins]<<endl;
+		    outFile << iQ <<" " << iX << " " <<im <<" " << iz <<  " " << locQ2 <<" " << locX << " " << locM <<" " <<locZ << " " <<  y[filledInnerBins] <<" +- "<< ey[filledInnerBins] << " +- " << y[filledInnerBins]-yTrue[filledInnerBins] <<" rel: " << rel << " " <<relSimuUncert  <<  " "<<kinCountsNoFileWeight[iQ][iX][iz][im]<< " true: " << yTrue[filledInnerBins]<<endl;
 		    outFile << iQ <<" " << iX << " " <<iz <<" " << im <<  " " << locQ2 <<" " << locX << " " << locZ <<" " <<locM << " " <<  y[filledInnerBins] <<" +- "<< ey[filledInnerBins] << " " <<relSimuUncert  <<  " "<<kinCountsNoFileWeight[iQ][iX][iz][im]<<endl;
 		    //		    cout <<"asymErr: "<< asymErrAll[iQ][iX][iz][im] <<" naive: "<< 1.0/sqrt(kinCountsAll[kinBinQ2][iQ][iX][iz][im]) <<endl;
 		    cout << "iQ:  " <<iQ <<" ix: "<< iX <<" im: "<< im <<" iz: "<< iz <<" y val: : " <<  y[filledInnerBins]  <<" uncertainty: "<<  ey[filledInnerBins] <<endl;

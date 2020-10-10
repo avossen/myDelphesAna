@@ -7,6 +7,7 @@ void setBranchAddresses(TTree* mTree,diHadTreeFields& fields)
 {
   mTree->SetBranchAddress("Q2",&fields.Q2);
   mTree->SetBranchAddress("x",&fields.x);
+  mTree->SetBranchAddress("trueX",&fields.trueX);
   mTree->SetBranchAddress("y",&fields.y);
   mTree->SetBranchAddress("W",&fields.W);
   mTree->SetBranchAddress("Mx",&fields.Mx);
@@ -17,6 +18,8 @@ void setBranchAddresses(TTree* mTree,diHadTreeFields& fields)
   mTree->SetBranchAddress("phiS",fields.phiS);
   mTree->SetBranchAddress("truePhiR",fields.truePhiR);
   mTree->SetBranchAddress("truePhiS",fields.truePhiS);
+  mTree->SetBranchAddress("trueM",fields.trueM);
+  mTree->SetBranchAddress("trueZ",fields.trueZ);
 
   mTree->SetBranchAddress("phiH",fields.phiH);
   mTree->SetBranchAddress("z",fields.z);

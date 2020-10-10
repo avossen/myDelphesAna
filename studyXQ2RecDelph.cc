@@ -597,7 +597,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
  	  recElectron = ((Electron*)branchElectron->At(recElectronIndex));
  	  pRecElectron =recElectron->P4();
 
-	  cout <<"rec electron e: " << pRecElectron.E() << " diff to truth: "<< pRecElectron.E()-pleptonOut.E()<<endl;
+	  //	  cout <<"rec electron e: " << pRecElectron.E() << " diff to truth: "<< pRecElectron.E()-pleptonOut.E()<<endl;
 	  if(y>0.1 && y<0.85)
 	    {
 	      pxSum+=pRecElectron.Px()-pleptonOut.Px();
@@ -605,7 +605,7 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 		      	      pzSum+=pRecElectron.Pz()-pleptonOut.Pz();
 	      diffSum+=pRecElectron.E()-pleptonOut.E();
 	      diffCount++;
-	      cout <<"mean e diff: "<< diffSum/diffCount <<" mean px diff: "<< pxSum/diffCount <<" py: "<< pySum/diffCount <<" pz: "<< pzSum/diffCount <<endl;
+	      //	      cout <<"mean e diff: "<< diffSum/diffCount <<" mean px diff: "<< pxSum/diffCount <<" py: "<< pySum/diffCount <<" pz: "<< pzSum/diffCount <<endl;
 	    }
 	  // 	}
 	  //      else
