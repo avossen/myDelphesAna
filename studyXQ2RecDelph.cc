@@ -34,7 +34,7 @@ using namespace std;
 
 #include "studyXQ2RecDelph.h"
 
-enum RecType{elec,gen, truth, recTypeEnd, hadronic, da, mixed, mostlyLepton,  genNoAcc};
+enum RecType{elec,gen, truth,  hadronic, da, mixed, recTypeEnd, mostlyLepton,  genNoAcc};
 //  int colors[]={kRed,kBlue,kGreen,kBlack,kCyan,kMagenta,kOrange,kYellow};
 string recTypeNames[]={"elec","generatedWAcc","truth","hadronic","da","mixed","mostlyLepton","generatedWOAcc"};
 class ExRootTreeReader;
@@ -67,6 +67,7 @@ struct TestPlots
   TH2* yCorr;
   TH1* yRec;
   TH1* yReal;
+  TH2* ptVsTheta;
   TH2* Q2VsXSmear;
   TH2* Q2VsXSmearDA;
   TH2* Q2VsXSmearJB;
@@ -155,6 +156,7 @@ void BookHistograms(ExRootResult *result, TestPlots *plots,int beamEnergyI, int 
   plots->angRec=result->AddHist1D("angRec","angRec"," ang rec","counts",200,0,6.5);
   plots->Q2VsXSmear=result->AddHist2D("Q2VsXSmear",buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
   plots->Q2VsXSmearDA=result->AddHist2D("Q2VsXSmearDA",buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
+  plots->ptVsTheta=result->AddHist2D("ptVsTheta","p_{T} Vs #theta","p_{T} [GeV]","#theta#",100,0,1.0,100, 0,3.5,0,0);
   plots->Q2VsXSmearJB=result->AddHist2D("Q2VsXSmearJB",buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
   plots->Q2VsXSmearMixed=result->AddHist2D("Q2VsXSmearMixed",buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
   plots->Q2VsXSmearNorm=result->AddHist2D("Q2VsXSmearNorm",buffer,"x","Q^{2}",corrBinsX,0.0001,1,corrBinsQ2,0.5,10000,1,1);
@@ -458,7 +460,8 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       //in reality here third
       if(whichHalf>0)
 	{
-	  if(entry/(double)allEntries>(whichHalf/3.0) || entry/(double)allEntries<(whichHalf-1.0)/3.0)
+	  //	  if(entry/(double)allEntries>(whichHalf/10.0) || entry/(double)allEntries<(whichHalf-1.0)/10.0)
+	  	  if(entry/(double)allEntries>(whichHalf/3.0) || entry/(double)allEntries<(whichHalf-1.0)/3.0)
 	    {
 	      //	  	  break;
 	  	  	  	  continue;
@@ -1035,6 +1038,15 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
 		}
 	      if(i==truth)
 		{
+		  double lowPt=pairsTrue[i][j].z1;
+		  double highPt=pairsTrue[i][j].z2;
+		  double theta=pairsTrue[i][j].m_theta;
+		  if(lowPt>highPt)
+		    {
+		      lowPt=highPt;
+		      highPt=pairsTrue[i][j].pt1;
+		    }
+		  plots->ptVsTheta->Fill(lowPt/highPt,theta);
 		  //		  cout <<"truth getting weight for Q2: "<< Q2<< " M: "<< pairsTrue[i][j].M <<" x: " << x <<" z: "<< pairsTrue[i][j].z <<endl;
 		  //		  cout <<"truth rec Q2: "<< Q2<< " M: "<< pairsRec[i][j].M <<" x: " << x <<" z: "<< pairsRec[i][j].z <<endl;
 		}
@@ -1282,10 +1294,6 @@ void AnalyzeEvents(ExRootTreeReader *treeReader, TestPlots *plots, double beamEn
       
 }
 
-
-
-
-
 int main(int argc, char** argv)
 {
   vector<PseudoJet> particles;
@@ -1404,6 +1412,10 @@ int main(int argc, char** argv)
   AnalyzeEvents(treeReader, plots,beamEnergy, hadronBeamEnergy,sqrtS,whichHalf);
     
   myFile->Write();
+  sprintf(buffer,"ptVsTheta_%d_%d.png",beamEnergyI,hadronBeamEnergyI);
+  plots->ptVsTheta->SaveAs(buffer);
+  sprintf(buffer,"ptVsTheta_%d_%d.root",beamEnergyI,hadronBeamEnergyI);
+  plots->ptVsTheta->SaveAs(buffer);
 
   cout <<"done analyzing, dividing... "<<endl;  
   plots->Q2VsXSmear->Divide(plots->Q2VsXSmearNorm);
@@ -1539,7 +1551,7 @@ int main(int argc, char** argv)
 	}
 		  cout <<"4" <<endl;
 	auto legend=new TLegend(0,0,1.0,1,0);
-
+    
 	for(int i=0;i<recTypeEnd;i++)
 	  {
 	    legend->AddEntry(plots->phiRHistos[i][0][j],recTypeNames[i].c_str(),"p");
@@ -1559,7 +1571,6 @@ int main(int argc, char** argv)
 	c1.SaveAs(buffer);
 	sprintf(buffer,"phiRDists_yBin_%d_%d_%d.root",j,beamEnergyI,hadronBeamEnergyI);
 	c1.SaveAs(buffer);
-
 	
 	///---
 	for(int k=0;k<plots->zBins.size();k++)
@@ -1618,94 +1629,96 @@ int main(int argc, char** argv)
 	c1.Divide(d+1,d);
 	
 	///---
-	for(int k=0;k<plots->ptBins.size();k++)
-	  {
-	    c1.cd(k+1);
-	    for(int i=0;i<mostlyLepton;i++)
-	      {
-		cout <<"trying to plot i: "<< i <<" j : " << j << " k: "<< k <<endl;
-		plots->jetDiff[i][k][j]->SetMarkerColor(colors[i]);
-		plots->jetDiff[i][k][j]->SetLineColor(colors[i]);
-		plots->jetDiff[i][k][j]->SetMarkerStyle(markerStyles[i]);
-		if(i==0)
-		  plots->jetDiff[i][k][j]->Draw("P");
-		else
-		  plots->jetDiff[i][k][j]->Draw("SAME P");
-		
-		//save them individually
-		/*	      c1.cd(0);
-			      plots->pTHistos[i][k][j]->Draw();
-			      sprintf(buffer,"allPhiRHistos/pT_%s_zBin%d_yBin%d.png",recTypeNames[i].c_str(),k,j);
-			      c1.SaveAs(buffer);
-			      cout <<"done " <<endl;*/
-	      }
-	  }
-	auto legendJet=new TLegend(0,0,1.0,1,0);
-	
-	for(int i=0;i<mostlyLepton;i++)
-	  {
-	    legendpt->AddEntry(plots->jetDiff[i][0][j],recTypeNames[i].c_str(),"p");
-	    
-	    TH1* histo=(TH1*)gDirectory->Get(plots->jetDiff[i][0][j]->GetName());
-	    cout <<" pull name for legend: " << plots->jetDiff[i][0][j]->GetName() <<endl;
-	    cout <<"color for marker: "<< plots->jetDiff[i][0][j]->GetMarkerColor()<<endl;;
-	    cout <<" or " << histo->GetMarkerColor()<<endl;
-	    
-	    cout <<"style for marker: "<< plots->jetDiff[i][0][j]->GetMarkerStyle()<<endl;
-	    cout <<" or " << histo->GetMarkerStyle()<<endl;
-	  }
-	c1.cd(plots->ptBins.size()+1);
-	legendJet->Draw();
-	legendJet->Draw();
-	sprintf(buffer,"jetDists_yBin_%d_%d_%d.png",j,beamEnergyI,hadronBeamEnergyI);
-	c1.SaveAs(buffer);
-	sprintf(buffer,"jetDists_yBin_%d_%d_%d.root",j,beamEnergyI,hadronBeamEnergyI);
-	c1.SaveAs(buffer);	
+////	for(int k=0;k<plots->ptBins.size();k++)
+////	  {
+////	    c1.cd(k+1);
+////	    for(int i=0;i<mostlyLepton;i++)
+////	      {
+////		cout <<"trying to plot i: "<< i <<" j : " << j << " k: "<< k <<endl;
+////		plots->jetDiff[i][k][j]->SetMarkerColor(colors[i]);
+////		plots->jetDiff[i][k][j]->SetLineColor(colors[i]);
+////		plots->jetDiff[i][k][j]->SetMarkerStyle(markerStyles[i]);
+////		if(i==0)
+////		  plots->jetDiff[i][k][j]->Draw("P");
+////		else
+////		  plots->jetDiff[i][k][j]->Draw("SAME P");
+////		
+////		//save them individually
+////		/*	      c1.cd(0);
+////			      plots->pTHistos[i][k][j]->Draw();
+////			      sprintf(buffer,"allPhiRHistos/pT_%s_zBin%d_yBin%d.png",recTypeNames[i].c_str(),k,j);
+////			      c1.SaveAs(buffer);
+////			      cout <<"done " <<endl;*/
+////	      }
+////	  }
+
+	///jet stuff below
+////	auto legendJet=new TLegend(0,0,1.0,1,0);
+////	
+////	for(int i=0;i<mostlyLepton;i++) //j
+////	  {
+////	    legendpt->AddEntry(plots->jetDiff[i][0][j],recTypeNames[i].c_str(),"p");
+////	    
+////	    TH1* histo=(TH1*)gDirectory->Get(plots->jetDiff[i][0][j]->GetName());
+////	    cout <<" pull name for legend: " << plots->jetDiff[i][0][j]->GetName() <<endl;
+////	    cout <<"color for marker: "<< plots->jetDiff[i][0][j]->GetMarkerColor()<<endl;;
+////	    cout <<" or " << histo->GetMarkerColor()<<endl;
+////	    
+////	    cout <<"style for marker: "<< plots->jetDiff[i][0][j]->GetMarkerStyle()<<endl;
+////	    cout <<" or " << histo->GetMarkerStyle()<<endl;
+////	  }
+////	c1.cd(plots->ptBins.size()+1);
+////	legendJet->Draw();
+////	legendJet->Draw();
+////	sprintf(buffer,"jetDists_yBin_%d_%d_%d.png",j,beamEnergyI,hadronBeamEnergyI);
+////	c1.SaveAs(buffer);
+////	sprintf(buffer,"jetDists_yBin_%d_%d_%d.root",j,beamEnergyI,hadronBeamEnergyI);
+////	c1.SaveAs(buffer);	
     
 	///---
-	for(int k=0;k<plots->ptBins.size();k++)
-	  {
-	    c1.cd(k+1);
-	    for(int i=0;i<mostlyLepton;i++)
-	      {
-		cout <<"trying to plot i: "<< i <<" j : " << j << " k: "<< k <<endl;
-		plots->jetEDiff[i][k][j]->SetMarkerColor(colors[i]);
-		plots->jetEDiff[i][k][j]->SetLineColor(colors[i]);
-		plots->jetEDiff[i][k][j]->SetMarkerStyle(markerStyles[i]);
-		if(i==0)
-		  plots->jetEDiff[i][k][j]->Draw("P");
-		else
-		  plots->jetEDiff[i][k][j]->Draw("SAME P");
-		
-		//save them individually
-		/*	      c1.cd(0);
-			      plots->pTHistos[i][k][j]->Draw();
-			      sprintf(buffer,"allPhiRHistos/pT_%s_zBin%d_yBin%d.png",recTypeNames[i].c_str(),k,j);
-			      c1.SaveAs(buffer);
-			      cout <<"done " <<endl;*/
-	      }
-	  }
+////	for(int k=0;k<plots->ptBins.size();k++)
+////	  {
+////	    c1.cd(k+1);
+////	    for(int i=0;i<mostlyLepton;i++)
+////	      {
+////		cout <<"trying to plot i: "<< i <<" j : " << j << " k: "<< k <<endl;
+////		plots->jetEDiff[i][k][j]->SetMarkerColor(colors[i]);
+////		plots->jetEDiff[i][k][j]->SetLineColor(colors[i]);
+////		plots->jetEDiff[i][k][j]->SetMarkerStyle(markerStyles[i]);
+////		if(i==0)
+////		  plots->jetEDiff[i][k][j]->Draw("P");
+////		else
+////		  plots->jetEDiff[i][k][j]->Draw("SAME P");
+////		
+////		//save them individually
+////		/*	      c1.cd(0);
+////			      plots->pTHistos[i][k][j]->Draw();
+////			      sprintf(buffer,"allPhiRHistos/pT_%s_zBin%d_yBin%d.png",recTypeNames[i].c_str(),k,j);
+////			      c1.SaveAs(buffer);
+////			      cout <<"done " <<endl;*/
+////	      }
+////	  }
 	//	auto legendJet=new TLegend(0,0,1.0,1,0);
 	
-	for(int i=0;i<mostlyLepton;i++)
-	  {
-	    legendpt->AddEntry(plots->jetEDiff[i][0][j],recTypeNames[i].c_str(),"p");
-	    
-	    TH1* histo=(TH1*)gDirectory->Get(plots->jetEDiff[i][0][j]->GetName());
-	    cout <<" pull name for legend: " << plots->jetEDiff[i][0][j]->GetName() <<endl;
-	    cout <<"color for marker: "<< plots->jetEDiff[i][0][j]->GetMarkerColor()<<endl;;
-	    cout <<" or " << histo->GetMarkerColor()<<endl;
-	    
-	    cout <<"style for marker: "<< plots->jetEDiff[i][0][j]->GetMarkerStyle()<<endl;
-	    cout <<" or " << histo->GetMarkerStyle()<<endl;
-	  }
-	c1.cd(plots->ptBins.size()+1);
-	legendJet->Draw();
-	legendJet->Draw();
-	sprintf(buffer,"jetEDists_yBin_%d_%d_%d.png",j,beamEnergyI,hadronBeamEnergyI);
-	c1.SaveAs(buffer);
-	sprintf(buffer,"jetEDists_yBin_%d_%d_%d.root",j,beamEnergyI,hadronBeamEnergyI);
-	c1.SaveAs(buffer);	
+////	for(int i=0;i<mostlyLepton;i++)
+////	  {
+////	    legendpt->AddEntry(plots->jetEDiff[i][0][j],recTypeNames[i].c_str(),"p");
+////	    
+////	    TH1* histo=(TH1*)gDirectory->Get(plots->jetEDiff[i][0][j]->GetName());
+////	    cout <<" pull name for legend: " << plots->jetEDiff[i][0][j]->GetName() <<endl;
+////	    cout <<"color for marker: "<< plots->jetEDiff[i][0][j]->GetMarkerColor()<<endl;;
+////	    cout <<" or " << histo->GetMarkerColor()<<endl;
+////	    
+////	    cout <<"style for marker: "<< plots->jetEDiff[i][0][j]->GetMarkerStyle()<<endl;
+////	    cout <<" or " << histo->GetMarkerStyle()<<endl;
+////	  }
+////	c1.cd(plots->ptBins.size()+1);
+////	legendJet->Draw();
+////	legendJet->Draw();
+////	sprintf(buffer,"jetEDists_yBin_%d_%d_%d.png",j,beamEnergyI,hadronBeamEnergyI);
+////	c1.SaveAs(buffer);
+////	sprintf(buffer,"jetEDists_yBin_%d_%d_%d.root",j,beamEnergyI,hadronBeamEnergyI);
+////	c1.SaveAs(buffer);	
 
     }
 //---  
@@ -1748,38 +1761,66 @@ int main(int argc, char** argv)
       plots->ptMeans[i]->Draw("colz");
       drawYContour(0.01,beamEnergy,hadronBeamEnergy);
       drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+      sprintf(buffer,"ptMeans_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
       c1.SaveAs(buffer);
+      
+      sprintf(buffer,"ptMeans_%s_%d_%d.root",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
+      c1.SaveAs(buffer);
+      drawYContour(0.01,beamEnergy,hadronBeamEnergy);
+      drawYContour(0.05,beamEnergy,hadronBeamEnergy);
       
       sprintf(buffer,"ptDiffs_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
       plots->ptDiffs[i]->Draw("colz");
+      
       drawYContour(0.01,beamEnergy,hadronBeamEnergy);
       drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+
+      sprintf(buffer,"ptDiffs_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
       c1.SaveAs(buffer);
 
+      sprintf(buffer,"ptDiffs_%s_%d_%d.root",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
+      c1.SaveAs(buffer);
+
+      
       sprintf(buffer,"phiRMeans_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
       plots->phiRMeans[i]->Draw("colz");
       drawYContour(0.01,beamEnergy,hadronBeamEnergy);
       drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+      sprintf(buffer,"phiRMeans_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
       c1.SaveAs(buffer);
-      sprintf(buffer,"phiRDiffs_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
+      sprintf(buffer,"phiRMeans_%s_%d_%d.root",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
+      c1.SaveAs(buffer);
+
+
+      
       plots->phiRDiffs[i]->Draw("colz");
       drawYContour(0.01,beamEnergy,hadronBeamEnergy);
       drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+      sprintf(buffer,"phiRDiffs_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
+      c1.SaveAs(buffer);
+      sprintf(buffer,"phiRDiffs_%s_%d_%d.root",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
       c1.SaveAs(buffer);
 
 
-      sprintf(buffer,"zMeans_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);
+
 
   
       plots->zMeans[i]->Draw("colz");
       drawYContour(0.01,beamEnergy,hadronBeamEnergy);
       drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+      sprintf(buffer,"zMeans_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);
       c1.SaveAs(buffer);
-      sprintf(buffer,"zDiffs_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
+      sprintf(buffer,"zMeans_%s_%d_%d.root",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);
+      c1.SaveAs(buffer);
+
       plots->zDiffs[i]->Draw("colz");
       drawYContour(0.01,beamEnergy,hadronBeamEnergy);
       drawYContour(0.05,beamEnergy,hadronBeamEnergy);
+      sprintf(buffer,"zDiffs_%s_%d_%d.png",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
       c1.SaveAs(buffer);
+      sprintf(buffer,"zDiffs_%s_%d_%d.root",recTypeNames[i].c_str(),beamEnergyI,hadronBeamEnergyI);      
+      c1.SaveAs(buffer);
+
     }
   c1.SetLogz(false);  
 
@@ -1790,6 +1831,10 @@ int main(int argc, char** argv)
   drawYContour(0.05,beamEnergy,hadronBeamEnergy);
   sprintf(buffer,"Q2VsXSmearDA_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
   c1.SaveAs(buffer);
+  sprintf(buffer,"Q2VsXSmearDA_%dx%d.root",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+
+
   
   plots->Q2VsXSmearJB->Draw("colz");
   drawYContour(0.01,beamEnergy,hadronBeamEnergy);
@@ -1797,17 +1842,28 @@ int main(int argc, char** argv)
 
   sprintf(buffer,"Q2VsXSmearJB_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
   c1.SaveAs(buffer);
+  sprintf(buffer,"Q2VsXSmearJB_%dx%d.root",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+
+
+  
   plots->Q2VsXSmearMixed->Draw("colz");
   drawYContour(0.01,beamEnergy,hadronBeamEnergy);
   drawYContour(0.05,beamEnergy,hadronBeamEnergy);
 
   sprintf(buffer,"Q2VsXSmearMixed_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
   c1.SaveAs(buffer);
+  sprintf(buffer,"Q2VsXSmearMixed_%dx%d.root",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+
+  
   plots->Q2VsXSmear->Draw("colz");
   drawYContour(0.01,beamEnergy,hadronBeamEnergy);
   drawYContour(0.05,beamEnergy,hadronBeamEnergy);
 
   sprintf(buffer,"Q2VsXSmear_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+  sprintf(buffer,"Q2VsXSmear_%dx%d.root",beamEnergyI,hadronBeamEnergyI);
   c1.SaveAs(buffer);
 
 
@@ -1819,6 +1875,8 @@ int main(int argc, char** argv)
   drawYContour(0.05,beamEnergy,hadronBeamEnergy);
   sprintf(buffer,"Q2VsXSmearDALinear_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
   c1.SaveAs(buffer);
+  sprintf(buffer,"Q2VsXSmearDALinear_%dx%d.root",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
   
   plots->Q2VsXSmearJBLinear->Draw("colz");
   drawYContour(0.01,beamEnergy,hadronBeamEnergy);
@@ -1826,26 +1884,38 @@ int main(int argc, char** argv)
 
   sprintf(buffer,"Q2VsXSmearJBLinear_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
   c1.SaveAs(buffer);
+    sprintf(buffer,"Q2VsXSmearJBLinear_%dx%d.root",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+
   plots->Q2VsXSmearMixedLinear->Draw("colz");
   drawYContour(0.01,beamEnergy,hadronBeamEnergy);
   drawYContour(0.05,beamEnergy,hadronBeamEnergy);
 
   sprintf(buffer,"Q2VsXSmearMixedLinear_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
   c1.SaveAs(buffer);
+    sprintf(buffer,"Q2VsXSmearMixedLinear_%dx%d.root",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+
   plots->Q2VsXSmearLinear->Draw("colz");
   drawYContour(0.01,beamEnergy,hadronBeamEnergy);
   drawYContour(0.05,beamEnergy,hadronBeamEnergy);
 
   sprintf(buffer,"Q2VsXSmearLinear_%dx%d.png",beamEnergyI,hadronBeamEnergyI);
   c1.SaveAs(buffer);
+  sprintf(buffer,"Q2VsXSmearLinear_%dx%d.root",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
 
 
   plots->jetPtSpect->Draw();
   sprintf(buffer,"jetPtSpect_%d%d.png",beamEnergyI,hadronBeamEnergyI);
   c1.SaveAs(buffer);
+  sprintf(buffer,"jetPtSpect_%d%d.root",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
 
   plots->jetYSpect->Draw();
   sprintf(buffer,"jetYSpect_%d%d.png",beamEnergyI,hadronBeamEnergyI);
+  c1.SaveAs(buffer);
+  sprintf(buffer,"jetYSpect_%d%d.root",beamEnergyI,hadronBeamEnergyI);
   c1.SaveAs(buffer);
 
   

@@ -6,6 +6,7 @@
 void setBranchAddresses(TTree* mTree,diHadTreeFields& fields)
 {
   mTree->SetBranchAddress("Q2",&fields.Q2);
+  mTree->SetBranchAddress("trueQ2",&fields.trueQ2);
   mTree->SetBranchAddress("x",&fields.x);
   mTree->SetBranchAddress("trueX",&fields.trueX);
   mTree->SetBranchAddress("y",&fields.y);
@@ -36,7 +37,7 @@ void setBranchAddresses(TTree* mTree,diHadTreeFields& fields)
 }
 
 
-pair<double,double> getA(double** vals, vector<float>& phiBins,int kinBin, const char* recTypeName,const char* boundName, int binning)
+pair<double,double> getA(double** vals, vector<float>& phiBins,int kinBin, const char* recTypeName,const char* boundName, int binning,char* graphName)
 {
   double y[20];
   double ey[20];
@@ -72,7 +73,8 @@ pair<double,double> getA(double** vals, vector<float>& phiBins,int kinBin, const
   TGraphErrors g(phiBins.size(),x,y,ex,ey);
   
   gStyle->SetOptFit(111);
-  sprintf(buffer,"graphFor_rec_%s_binning%d_kinBin%d_bound_%s.png",recTypeName,binning,kinBin,boundName);
+  cout <<"saving as " << buffer <<endl;
+  sprintf(buffer,"graphFor_rec_%s_binning%d_kinBin%d_bound_%s_%s.png",recTypeName,binning,kinBin,boundName,graphName);
   //sprintf(buffer,"graphFor_rec_%s_binning%d_kinBin%d_bound_%s.png",recTypeNames[i].c_str(),binning,kinBin,boundNames[iBound].c_str());
   TCanvas c1;
   TF1 f1("f1","[0]*sin(x)",0,2*M_PI);

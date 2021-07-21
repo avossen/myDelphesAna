@@ -40,12 +40,14 @@ enum RecType{elec, gen,truth, recTypeEnd, hadronic, da, mixed, mostlyLepton, gen
 enum bound{mean,upper,lower,endBound};
 int main(int argc, char** argv)
 {
+  //polarization
+
   bool debug=false;
   double minZ=0.2;
   double minM=0.1;
   ofstream outFile;
   outFile.open ("extractionOutput.txt");
-  bool useRealAsym=true;
+  bool useRealAsym=false;
   //plot the inner pad of the projections vs m (otherwise z)
   bool vsM=true;
   int minCounts=10;
@@ -78,6 +80,7 @@ int main(int argc, char** argv)
   string binningNames[]={"Q2","x","z","M"};
   cout <<"??" <<endl;
   char buffer[1000];
+  char buffer1[1000];
 string recTypeNames[]={"elec","generatedWAcc","truth","hadronic","da","mixed","mostlyLepton","generatedWOAcc"};
 //  string recTypeNames[]={"elec", "generatedWAcc","hadronic","da","mixed","mostlyLepton","generatedWOAcc"};
   string boundNames[]={"mean","upper","lower"};
@@ -108,36 +111,38 @@ string recTypeNames[]={"elec","generatedWAcc","truth","hadronic","da","mixed","m
   vector<float> phiBins;
 
 
-    double xBinsPerDecade=3;
+  double xBinsPerDecade=3;
 
-         double q2BinsPerDecade=2;
+  double q2BinsPerDecade=2;
 	 // double q2BinsPerDecade=1;
-	 /*    for(int i=1;i<9;i++)
+    for(int i=1;i<9;i++)
   //  for(int i=1;i<2;i++)
     {
       cout <<" adding q2Bin: "<< pow(10,i/q2BinsPerDecade)<<endl;
       Q2Bins.push_back(pow(10,+i/q2BinsPerDecade));
-    }
-    Q2Bins.push_back(1000);
-	 */
-	 Q2Bins.push_back(10.0);
-Q2Bins.push_back(100000);
-//   Q2Bins.push_back(100);
-//   Q2Bins.push_back(100000);
+      }
+	 //    Q2Bins.push_back(1000);
+	 
+	 //	 Q2Bins.push_back(10.0);
+	 Q2Bins.push_back(100000);
+
+  
+	 //   Q2Bins.push_back(100);
+	 //   Q2Bins.push_back(100000);
 
 
-/*   for(int i=1;i<12;i++)
+    for(int i=1;i<12;i++)
 //	//       for(int i=1;i<3;i++)
      {
        cout <<" adding xbin: "<< pow(10,-4+i/xBinsPerDecade) <<endl;
        xBins.push_back(pow(10,-4.0+i/xBinsPerDecade));
      }
+   
 
 
-     xBins.push_back(10.0);*/
-
-
-      xBins.push_back(0.1);
+    //        xBins.push_back(0.1);
+    //	   xBins.push_back(0.3);
+    //	   xBins.push_back(0.4);
        xBins.push_back(100.0);
 //
 //just for the plots
@@ -148,25 +153,26 @@ Q2Bins.push_back(100000);
 ////  xBins.push_back(100.00);
 ////  
   
-///    zBins.push_back(0.3);
+    zBins.push_back(0.3);
   //            zBins.push_back(0.35);
-       ///         zBins.push_back(0.4);
+    zBins.push_back(0.4);
 	//                  zBins.push_back(0.45);
-	 ///		zBins.push_back(0.5);
-	 ///		zBins.push_back(0.6);
-	 ///		zBins.push_back(0.7);
-	 ///		zBins.push_back(0.8);
-	 //		zBins.push_back(0.9);
-	zBins.push_back(100.0);
-      
-	//	mBins.push_back(0.3);
-	///	mBins.push_back(0.5);
-	//	mBins.push_back(0.6);
-	///	mBins.push_back(0.7);
-	////	mBins.push_back(0.8);
-	///        mBins.push_back(0.9);
-	///         mBins.push_back(1.2);
-	////  mBins.push_back(1.5);
+        zBins.push_back(0.5);
+        zBins.push_back(0.6);
+        zBins.push_back(0.7);
+        zBins.push_back(0.8);
+        zBins.push_back(0.9);
+//       zBins.push_back(0.4);
+       zBins.push_back(100.0);
+       
+    	mBins.push_back(0.3);
+	mBins.push_back(0.5);
+	mBins.push_back(0.6);
+	mBins.push_back(0.7);
+	mBins.push_back(0.8);
+	mBins.push_back(0.9);
+	mBins.push_back(1.2);
+	mBins.push_back(1.5);
   mBins.push_back(2000.0);
   cout <<"mbins size: "<< mBins.size() <<endl;
 
@@ -188,6 +194,7 @@ Q2Bins.push_back(100000);
   //this also sets them to zero and can be dynamic
   //		  counts[i][xBinning][xBin][phiBin][polIndex]+=weight*weightFile;
   double***** counts=allocateArray<double>(8,4,maxBins,16,2);
+
   double***** countsUpper=allocateArray<double>(8,4,maxBins,16,2);
   double***** countsLower=allocateArray<double>(8,4,maxBins,16,2);
 
@@ -214,16 +221,20 @@ Q2Bins.push_back(100000);
     double **** meanWeightAllTrue=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
     double **** meanWeightUncAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
   double ***** kinMeansAll=allocateArray<double>(4,numQ2Bins,numXBins,numZBins,numMBins);
+  double **** yMeansAll=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
   double ***** kinCountsAll=allocateArray<double>(4,numQ2Bins,numXBins,numZBins,numMBins);
+  double **** kinCountsAllNoFileWeight=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
   double **** kinCountsAllTrue=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+    double **** kinCountsAllTrueNoFileWeight=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
   
   //need to keep track of unweighted counts to get the uncertainties of the estimates
-  double **** kinCountsNoFileWeight=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
+
+
 
 
   double*** kinMeans=allocateArray<double>(8,4,10);
   double*** kinCounts=allocateArray<double>(8,4,10);
-
+  double*** kinCountsNoFileWeight=allocateArray<double>(8,4,10);
   //first dimention is bound (mean, upper, lower)
   double**** amps=allocateArray<double>(3,8,4,10);
   double**** ampErrs=allocateArray<double>(3,8,4,10);
@@ -247,6 +258,9 @@ Q2Bins.push_back(100000);
   //   char* listfile=argv[1];
   //  ifstream fListFile(listfile);
   //  string line;
+  
+  double polarization=0.7;
+  double dilution=1.0;
 
   while(getline(fListFile,line))
     {
@@ -256,8 +270,9 @@ Q2Bins.push_back(100000);
       int minQ2=0;
       int maxQ2=0;
       double weightFile=0;
-      iss>> str >> minQ2 >> maxQ2 >> weightFile;
-            cout <<"reading: " << str << " minQ2: " << minQ2 <<" maxQ2 " << maxQ2 <<" weight: " << weightFile <<endl;
+      //not too clean, since polarization and dilution are aplied to all...
+      iss>> str >> minQ2 >> maxQ2 >> weightFile >> polarization >> dilution;
+      cout <<"reading: " << str << " minQ2: " << minQ2 <<" maxQ2 " << maxQ2 <<" weight: " << weightFile << " polarization: "<< polarization <<" dilution: " << dilution<<endl;
       if(str.length()<10)
 	{
 	  cout <<"bail..." <<endl;
@@ -423,7 +438,13 @@ Q2Bins.push_back(100000);
 		    cout <<" looking at pair with z: " << treeFields[treeIndex].z[iPair]<<" M: " << treeFields[treeIndex].M[iPair]<< " weight: " << treeFields[treeIndex].rawWeight[iPair]<<endl;
 		    cout <<" x; " << x <<" Q2: "<< Q2 <<endl;
 		    }
-	      
+
+		  float trueM=treeFields[treeIndex].trueM[iPair];
+		  float trueZ=treeFields[treeIndex].trueZ[iPair];
+		  float trueQ2=treeFields[treeIndex].trueQ2;
+		  float trueX=treeFields[treeIndex].trueX;
+		  
+		  
 		  int zBin=getBin(zBins,treeFields[treeIndex].z[iPair]);
 		  int trueZBin=getBin(zBins,treeFields[treeIndex].trueZ[iPair]);
 		  int mBin=getBin(mBins,treeFields[treeIndex].M[iPair]);
@@ -467,6 +488,16 @@ Q2Bins.push_back(100000);
 		  int truePhiBin=getBin(phiBins,trueAng);
 		  
 		  float weight=treeFields[treeIndex].weight[iPair];
+
+		  double meanWeight=0;
+		  double unc=0;
+
+
+		  //		  cout <<"true Q2: " << sqrt(trueQ2) <<" trueM: " << trueM<<" trueX: "<< trueX <<" tureZ: "<< trueZ <<endl;
+		  m_weights->getWeight(sqrt(trueQ2),trueM,trueX,trueZ,meanWeight,unc);
+
+		  //		  cout <<"rawWeight " << treeFields[treeIndex].rawWeight[iPair] <<" rec weight: "  <<meanWeight <<endl;
+		  //		  cout <<"weight " <<  treeFields[treeIndex].weight[iPair] <<" recweight: "<< 1+treeFields[treeIndex].polarization[iPair]*meanWeight*sin(trueAng)<<endl;
 		  
 	      //	      weight=1.0;
 		  	  if(debug)
@@ -507,6 +538,7 @@ Q2Bins.push_back(100000);
 			{
 			  meanWeightAllTrue[Q2Bin][xBin][zBin][mBin]+=(rawWeight*weightFile);
 			  kinCountsAllTrue[Q2Bin][xBin][zBin][mBin]+=weight*weightFile;
+			  kinCountsAllTrueNoFileWeight[Q2Bin][xBin][zBin][mBin]+=weight;
 			}
 		      if(debug)
 			{
@@ -530,15 +562,16 @@ Q2Bins.push_back(100000);
 			}
 		      if(debug)
 			{
-			cout <<"2>>" <<endl;
-			cout <<"xbin: "<< xBin <<" zBin: " << zBin << " mBin : " << mBin <<endl;
+			  cout <<"2>>" <<endl;
+			  cout <<"xbin: "<< xBin <<" zBin: " << zBin << " mBin : " << mBin <<endl;
 			
 			}
 		      if(debug)
 			{
-			cout <<"mean weight elec before " << meanWeightAll[Q2Bin][xBin][zBin][mBin]<<endl;
-			cout <<" kin counts before: "<<  kinCountsAll[Q2Bin][xBin][zBin][mBin]<<endl;
-			cout <<" adding : " <<  rawWeight*weightFile << " and count; "<< weight*weightFile<<endl;
+			  cout <<"fdsafds q2bin: "<< Q2Bin <<" xbin: "<< xBin <<" zbin: "<< zBin <<" mbin: "<< mBin <<endl;
+			  cout <<"mean weight elec before " << meanWeightAll[Q2Bin][xBin][zBin][mBin]<<endl;
+			  cout <<" kin counts before: "<<  kinCountsAll[Q2Bin][xBin][zBin][mBin]<<endl;
+			  cout <<" adding : " <<  rawWeight*weightFile << " and count; "<< weight*weightFile<<endl;
 			}
 
 		      //		      if(rawWeight>0)
@@ -549,7 +582,8 @@ Q2Bins.push_back(100000);
 		      
 			  meanWeightUncAll[Q2Bin][xBin][zBin][mBin]+=(rawWeightUnc*weightFile);
 
-		      
+
+			  yMeansAll[Q2Bin][xBin][zBin][mBin]+=(weight*weightFile*treeFields[treeIndex].y);
 		      kinMeansAll[kinBinQ2][Q2Bin][xBin][zBin][mBin]+=(weight*weightFile*Q2);
 		      
 		      kinMeansAll[kinBinX][Q2Bin][xBin][zBin][mBin]+=(weight*weightFile*x);
@@ -559,23 +593,34 @@ Q2Bins.push_back(100000);
 
 		      kinMeansAll[kinBinM][Q2Bin][xBin][zBin][mBin]+=(weight*weightFile*M);
 		      kinCountsAll[kinBinQ2][Q2Bin][xBin][zBin][mBin]+=weight*weightFile;
+		      kinCountsAllNoFileWeight[Q2Bin][xBin][zBin][mBin]+=1;
 		      if(debug)
 			{
 			cout <<"mean weight elec now " << meanWeightAll[Q2Bin][xBin][zBin][mBin]<<endl;
-			cout <<" kin counts now: "<<  kinCountsAll[Q2Bin][xBin][zBin][mBin]<<endl;
+			cout <<" kin counts now: "<<  kinCountsAll[kinBinQ2][Q2Bin][xBin][zBin][mBin]<<endl;
 			}
 
 
 		      if(debug)
 			cout <<"2>>>" <<endl;
 		      
-		      countsAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex]+=weight*weightFile;
-		      countsAllTrueAng[Q2Bin][xBin][zBin][mBin][truePhiBin][polIndex]+=weight*weightFile;
+		      countsAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex]+=weight;
+		      countsAllTrueAng[Q2Bin][xBin][zBin][mBin][truePhiBin][polIndex]+=weight;
 		      //don't need to recalculate the weight, just put it at the correct kinematics...
-		      countsAllTrueAng[trueQ2Bin][trueXBin][trueZBin][trueMBin][truePhiBin][polIndex]+=weight*weightFile;
-		      countsUpperAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex]+=weightFile*treeFields[treeIndex].weightUpperLimit[iPair];
-		      countsLowerAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex]+=weightFile*treeFields[treeIndex].weightLowerLimit[iPair];
-		      kinCountsNoFileWeight[Q2Bin][xBin][zBin][mBin]+=1;
+		      if(Q2Bin!=trueQ2Bin || xBin!=trueXBin || mBin!=trueMBin || zBin!=trueZBin)
+			{
+			  //			  cout <<"Q2Bin: "<< Q2Bin <<" trueBin: "<< trueQ2Bin <<" xbin : " << xBin <<" trueXBin: "<< trueXBin <<" zbin: "<< zBin <<" true z bin : "<< trueZBin <<" mbin: " << mBin <<" trueMBin " << trueMBin <<endl;
+			}
+		      else
+			{
+			  //			  cout <<"same bins " <<endl;
+			}
+
+
+		      countsAllTrueAngAndKin[trueQ2Bin][trueXBin][trueZBin][trueMBin][truePhiBin][polIndex]+=weight;
+		      countsUpperAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair];
+		      countsLowerAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair];
+		      //		      kinCountsNoFileWeight[Q2Bin][xBin][zBin][mBin]+=1;
 		      //		      cout <<"2>>>>" <<endl;
 		    }
 
@@ -584,30 +629,34 @@ Q2Bins.push_back(100000);
 		  kinCounts[i][xBinning][xBin]+=(weight*weightFile);
 		  kinCounts[i][mBinning][mBin]+=(weight*weightFile);
 		  kinCounts[i][zBinning][zBin]+=(weight*weightFile);
+		  kinCountsNoFileWeight[i][xBinning][xBin]+=(weight);
+		  kinCountsNoFileWeight[i][mBinning][mBin]+=(weight);
+		  kinCountsNoFileWeight[i][zBinning][zBin]+=(weight);
+		  
 		  //		  cout <<"2-0" <<endl;
 		  //		  cout <<"2-0-" <<endl;
 		  //		  cout <<" fields: "<< treeFields[treeIndex].x <<endl;
 		  //		  cout <<"ipair: " << iPair <<endl;
 		  //		  cout << " treeF: " << treeFields[treeIndex].weightUpperLimit[iPair]*weightFile <<endl;
 		  //		  cout <<" we want to fill " << i <<" xBinning " << xBinning <<" xbin: "<< xBin <<" phiBin: "<< phiBin <<" polIndex: "<< polIndex <<endl;
-		  counts[i][xBinning][xBin][phiBin][polIndex]+=weight*weightFile;
-		  countsUpper[i][xBinning][xBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair]*weightFile;
+		  counts[i][xBinning][xBin][phiBin][polIndex]+=weight;
+		  countsUpper[i][xBinning][xBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair];
 		  //		  		  cout <<"2-0-0" <<endl;
-		  countsLower[i][xBinning][xBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair]*weightFile;
+		  countsLower[i][xBinning][xBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair];
 
 		  
 		  //		  		  cout <<"2-0-0-" <<endl;
-		  counts[i][mBinning][mBin][phiBin][polIndex]+=weight*weightFile;
+		  counts[i][mBinning][mBin][phiBin][polIndex]+=weight;
 		  //		  		  cout <<"2-00" <<endl;
-		  countsUpper[i][mBinning][mBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair]*weightFile;
+		  countsUpper[i][mBinning][mBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair];
 		  
-		  countsLower[i][mBinning][mBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair]*weightFile;
+		  countsLower[i][mBinning][mBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair];
 		  
 		  //	      	      cout <<"3" <<endl;
 	      //	      cout <<" i: "<< i <<" binning: "<< zBinning <<" zbin: "<< zBin <<" phiBin: "<< phiBin <<" pol: "<< polIndex <<endl;
-		  counts[i][zBinning][zBin][phiBin][polIndex]+=weight*weightFile;
-		  countsUpper[i][zBinning][zBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair]*weightFile;
-		  countsLower[i][zBinning][zBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair]*weightFile;
+		  counts[i][zBinning][zBin][phiBin][polIndex]+=weight;
+		  countsUpper[i][zBinning][zBin][phiBin][polIndex]+=treeFields[treeIndex].weightUpperLimit[iPair];
+		  countsLower[i][zBinning][zBin][phiBin][polIndex]+=treeFields[treeIndex].weightLowerLimit[iPair];
 		  //	      cout <<"3+" <<endl;
 		}
 	    }
@@ -672,16 +721,17 @@ Q2Bins.push_back(100000);
 	      locCounts[mean]=counts[i][binning][kinBin];
 	      locCounts[upper]=countsUpper[i][binning][kinBin];
 	      locCounts[lower]=countsLower[i][binning][kinBin];
+	      double fileWeightFactor=sqrt(kinCountsNoFileWeight[i][binning][kinBin]/kinCounts[i][binning][kinBin]);
 
-	      
 	      for(int iBound=mean;iBound<endBound;iBound++)
 		{
+
 		  cout <<"looking at bound " << iBound <<" i: "<< i <<" binning: "<< binning <<" kinBin: "<< kinBin << endl;
-		  pair<double,double> fitRes= getA(locCounts[iBound], phiBins,kinBin,recTypeNames[i].c_str(),boundNames[iBound].c_str(),binning);
+		  pair<double,double> fitRes= getA(locCounts[iBound], phiBins,kinBin,recTypeNames[i].c_str(),boundNames[iBound].c_str(),binning,"normal");
 		  cout <<"after fr " <<endl;
 		  cout <<"setting amps to " << fitRes.first <<endl;
 		  amps[iBound][i][binning][kinBin]=fitRes.first;
-		  ampErrs[iBound][i][binning][kinBin]=fitRes.second;
+		  ampErrs[iBound][i][binning][kinBin]=fitRes.second*fileWeightFactor;
 		  cout <<"amps and amp err " << iBound <<endl;
 /////		  for(int phiBin=0;phiBin<phiBins.size();phiBin++)
 /////		    {
@@ -731,13 +781,24 @@ Q2Bins.push_back(100000);
 	    {
 	      for(int mBin=0;mBin<mBins.size();mBin++)
 		{
+
+		  sprintf(buffer,"q2Bin_%i_xbin_%i_zbin_%i_mbin_%i",q2Bin,xBin,zBin,mBin);
+		  sprintf(buffer1,"%s_all",buffer);
+		  double fileWeightFactor=sqrt(kinCountsAllNoFileWeight[q2Bin][xBin][zBin][mBin]/kinCountsAll[kinBinQ2][q2Bin][xBin][zBin][mBin]);
+
+		  
 		  //	      pair<double,double> fitRes= getA(locCounts[mean], phiBins,kinBin,recTypeNames[i].c_str(),boundNames[iBound].c_str(),binning);
 		  //	      		  countsAll[Q2Bin][xBin][zBin][mBin][phiBin][polIndex];
-		  pair<double,double> fitRes=getA(countsAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_mean",0);
-		  pair<double,double> fitResTrueAng=getA(countsAllTrueAng[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_mean",0);
-		  pair<double,double> fitResTrueAngAndKin=getA(countsAllTrueAngAndKin[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_mean",0);
-		  pair<double,double> fitResUpper=getA(countsUpperAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_upper",0);
-		  pair<double,double> fitResLower=getA(countsLowerAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_lower",0);
+		  pair<double,double> fitRes=getA(countsAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_mean",0,buffer1);
+		  sprintf(buffer1,"%s_trueAng",buffer);
+		  pair<double,double> fitResTrueAng=getA(countsAllTrueAng[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_mean",0,buffer1);
+		  sprintf(buffer1,"%s_trueAngAndKin",buffer);
+		  pair<double,double> fitResTrueAngAndKin=getA(countsAllTrueAngAndKin[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_mean",0,buffer1);
+		  sprintf(buffer1,"%s_normal",buffer);
+
+		  pair<double,double> fitResUpper=getA(countsUpperAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_upper",0,buffer1);
+		  
+		  pair<double,double> fitResLower=getA(countsLowerAll[q2Bin][xBin][zBin][mBin],phiBins,0,"_all","_lower",0,buffer1);
 
 		  cout <<"fit for all q2bin: "<< q2Bin <<" xBin: "<< xBin <<" zBin " << zBin <<" mBin: "<< mBin << " A: " <<fitRes.first<<endl;
 		  
@@ -747,9 +808,9 @@ Q2Bins.push_back(100000);
 		  asymUpperAll[q2Bin][xBin][zBin][mBin]=fitResUpper.first;
 		  asymLowerAll[q2Bin][xBin][zBin][mBin]=fitResLower.first;
 		  //only care for uncertainties of the mean asym
-		  asymErrAll[q2Bin][xBin][zBin][mBin]=fitRes.second;
-		  asymErrAllTrueAng[q2Bin][xBin][zBin][mBin]=fitResTrueAng.second;
-		  asymErrAllTrueAngAndKin[q2Bin][xBin][zBin][mBin]=fitResTrueAngAndAndKin.second;
+		  asymErrAll[q2Bin][xBin][zBin][mBin]=fitRes.second*fileWeightFactor;
+		  asymErrAllTrueAng[q2Bin][xBin][zBin][mBin]=fitResTrueAng.second/fileWeightFactor;
+		  asymErrAllTrueAngAndKin[q2Bin][xBin][zBin][mBin]=fitResTrueAngAndKin.second*fileWeightFactor;;
 		}
 	    }
 	}
@@ -1083,6 +1144,9 @@ Q2Bins.push_back(100000);
 		double yTrueAngAndKin[40];
 		double ySys[40];
 		double ey[40];
+		double eyTrueAng[40];
+		double eyTrueAngAndKin[40];
+	     
 		double meanWeight=0;
 		double unc=0;
 
@@ -1114,10 +1178,13 @@ Q2Bins.push_back(100000);
 		    double locM=0;
 		    double locZ=0;
 		    double locX=0;
+		    double locY=0;
 		    double locMeanWeightAll;
 		    double locMeanWeightAllTrue;
 		    double locMeanWeightUncAll;
-		
+
+
+		    locY=yMeansAll[iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];
 		    locQ2=kinMeansAll[kinBinQ2][iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];
 		    locM=kinMeansAll[kinBinM][iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];		    
 		    locZ=kinMeansAll[kinBinZ][iQ][iX][iz][im]/kinCountsAll[kinBinQ2][iQ][iX][iz][im];	      
@@ -1153,6 +1220,7 @@ Q2Bins.push_back(100000);
 			yTrue[filledInnerBins]=locMeanWeightAllTrue;
 			yTrueAng[filledInnerBins]=asymAllTrueAng[iQ][iX][iz][im];
 			yTrueAngAndKin[filledInnerBins]=asymAllTrueAngAndKin[iQ][iX][iz][im];
+			
 		      }
 		    else
 		      {
@@ -1167,6 +1235,8 @@ Q2Bins.push_back(100000);
 		    if(useRealAsym)
 		      {
 			  ey[filledInnerBins]=asymErrAll[iQ][iX][iz][im];
+			  eyTrueAng[filledInnerBins]=asymErrAllTrueAng[iQ][iX][iz][im];
+			  eyTrueAngAndKin[filledInnerBins]=asymErrAllTrueAngAndKin[iQ][iX][iz][im];
 		      }
 		    else
 		      {
@@ -1176,6 +1246,8 @@ Q2Bins.push_back(100000);
 
 			cout <<"done with ey " << endl;
 		      }
+		    //account for polarization
+		    ey[filledInnerBins]/=(polarization*dilution);
 		    cout <<"dada " <<endl;
 
 		    //		      double **** kinCountsNoFileWeight=allocateArray<double>(numQ2Bins,numXBins,numZBins,numMBins);
@@ -1185,14 +1257,14 @@ Q2Bins.push_back(100000);
 		    //		    cout <<"we want to divide by " <<sqrt(kinCountsNoFileWeight[iQ][iX][iz][im]) <<endl;
 		    
 		    double relSimuUncert=0;
-		    relSimuUncert=1/sqrt(kinCountsNoFileWeight[iQ][iX][iz][im]);
+		    relSimuUncert=1/sqrt(kinCountsAllNoFileWeight[iQ][iX][iz][im]);
 		    cout <<"writing to file .." <<endl;
 		    double rel=0;
 		    if(yTrue[filledInnerBins]>0)
 		      rel=(y[filledInnerBins]-yTrue[filledInnerBins])/yTrue[filledInnerBins];
 		    
-		    outFile << iQ <<" " << iX << " " <<im <<" " << iz <<  " " << locQ2 <<" " << locX << " " << locM <<" " <<locZ << " " <<  y[filledInnerBins] <<" +- "<< ey[filledInnerBins] << " +- " << y[filledInnerBins]-yTrue[filledInnerBins] <<" rel: " << rel << " " <<relSimuUncert  <<  " "<<kinCountsNoFileWeight[iQ][iX][iz][im]<< " true: " << yTrue[filledInnerBins]<<endl;
-		    outFile << iQ <<" " << iX << " " <<iz <<" " << im <<  " " << locQ2 <<" " << locX << " " << locZ <<" " <<locM << " " <<  y[filledInnerBins] <<" +- "<< ey[filledInnerBins] << " " <<relSimuUncert  <<  " "<<kinCountsNoFileWeight[iQ][iX][iz][im]<<endl;
+		    //		    outFile << iQ <<" " << iX << " " <<im <<" " << iz <<  " " << locQ2 <<" " << locX << " " << locM <<" " <<locZ << " " << locY<<" "   y[filledInnerBins] <<" +- "<< ey[filledInnerBins] << " +- " << y[filledInneinc
+		    outFile << iQ <<" " << iX << " " <<iz <<" " << im <<  " " << locQ2 <<" " << locX << " " << locZ <<" " <<locM << " " <<locY << " " <<  y[filledInnerBins] <<" +- "<< ey[filledInnerBins] << " " <<relSimuUncert  <<  " "<<kinCountsAllNoFileWeight[iQ][iX][iz][im]<<endl;
 		    //		    cout <<"asymErr: "<< asymErrAll[iQ][iX][iz][im] <<" naive: "<< 1.0/sqrt(kinCountsAll[kinBinQ2][iQ][iX][iz][im]) <<endl;
 		    cout << "iQ:  " <<iQ <<" ix: "<< iX <<" im: "<< im <<" iz: "<< iz <<" y val: : " <<  y[filledInnerBins]  <<" uncertainty: "<<  ey[filledInnerBins] <<endl;
 		    filledInnerBins++;
@@ -1203,14 +1275,22 @@ Q2Bins.push_back(100000);
 		sprintf(buffer,"fancyGraph_xbin_%d_q2bin_%d",iX,iQ);
 		TGraphErrors* gr=new TGraphErrors(filledInnerBins,x,y,ex,ey);
 		TGraphErrors* grTruth=new TGraphErrors(filledInnerBins,x,yTrue,ex,ey);
+		TGraphErrors* grTrueAng=new TGraphErrors(filledInnerBins,x,yTrueAng,ex,ey);
+		TGraphErrors* grTrueAngAndKin=new TGraphErrors(filledInnerBins,x,yTrueAngAndKin,ex,ey);
 		TGraphErrors* grSys=new TGraphErrors(filledInnerBins,x,y,ex,ySys);
 		gr->SetTitle("");
 		gr->SetMarkerStyle(markerStyles[0]);
 		gr->SetMarkerColor(colors[0]);
 
 		grTruth->SetTitle("");
+		grTrueAng->SetTitle("");
+		grTrueAngAndKin->SetTitle("");
 		grTruth->SetMarkerStyle(markerStyles[2]);
+		grTrueAng->SetMarkerStyle(markerStyles[2]);
+		grTrueAngAndKin->SetMarkerStyle(markerStyles[2]);
 		grTruth->SetMarkerColor(kBlack);
+		grTrueAng->SetMarkerColor(kBlue);
+		grTrueAngAndKin->SetMarkerColor(kMagenta);
 
 
 		grSys->SetTitle("sys");
@@ -1246,7 +1326,9 @@ Q2Bins.push_back(100000);
 		gr->Draw("AP");
 		grSys->Draw("SAME 3");
 		gr->Draw("SAME P");
-		grTruth->Draw("SAME P");
+		///		grTruth->Draw("SAME P");
+		///		grTrueAng->Draw("SAME P");
+		//		grTrueAngAndKin->Draw("SAME P");
 		line->Draw();
 		if(iX==0)
 		  {
